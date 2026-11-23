@@ -40,6 +40,9 @@ begin
     raise EArgumentNilException.Create('Options must be assigned.');
   if Assigned(Overrides) then
   begin
+    Options.Logs.ApplyOverrides(Overrides.Logs, Overrides.Endpoint);
+    Options.Metrics.ApplyOverrides(Overrides.Metrics, Overrides.Endpoint);
+    if Overrides.MetricsIntervalMs > 0 then Options.MetricsIntervalMs := Overrides.MetricsIntervalMs;
     if Overrides.TraceHeaders <> '' then Options.TraceHeaders := Overrides.TraceHeaders;
     if Overrides.TraceProtocol <> '' then Options.TraceProtocol := Overrides.TraceProtocol;
     if Overrides.TraceTimeoutMs >= 0 then Options.TraceTimeoutMs := Overrides.TraceTimeoutMs;

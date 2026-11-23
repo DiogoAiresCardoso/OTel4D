@@ -26,7 +26,7 @@ implementation
 
 uses
   Winapi.Windows, Winapi.WinHTTP, System.StrUtils, System.NetEncoding,
-  OTel.Model.Dto.Configuration, OTel.View.TraceProtobuf;
+  OTel.Model.Dto.Configuration, OTel.View.Protobuf;
 
 const
   ProtobufType = 'application/x-protobuf';
@@ -191,7 +191,7 @@ begin
           if (Body.Size > 0) and (MediaType = '') then Exit;
           SetLength(Bytes, Body.Size);
           if Body.Size > 0 then Move(Body.Memory^, Bytes[0], Body.Size);
-          if TOTelTraceProtobuf.DecodeResponse(Bytes, Rejected, Warning) and (Rejected <= UInt64(Count)) then
+          if TOTelProtobufResponse.Decode(Bytes, Rejected, Warning) and (Rejected <= UInt64(Count)) then
             Result := Integer(Rejected);
           Exit;
         end;

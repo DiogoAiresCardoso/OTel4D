@@ -3,12 +3,12 @@ unit OTel.Controller.SpanQueue;
 interface
 
 uses
-  System.Generics.Collections, OTel.Model.Dto.Span;
+  Winapi.Windows, System.Generics.Collections, OTel.Model.Dto.Telemetry, OTel.Model.Dto.Span;
 
 type
-  TOTelSpanQueue = class(TInterfacedObject, IOTelSpanSink)
+  TOTelBatchQueue<T: class> = class(TInterfacedObject, IOTelSink<T>)
   strict private
-    FItems: TQueue<TOTelSpanData>;
+    FItems: TQueue<T>;
     FClosing, FDisabled: Boolean;
     FFirstQueued: UInt64;
     FAccepted, FCompleted, FFlushTarget, FDropped, FRejected, FWarnings: Int64;
@@ -16,10 +16,11 @@ type
     constructor Create(Disabled: Boolean);
     destructor Destroy; override;
     function IsAccepting: Boolean;
-    procedure Submit(Data: TOTelSpanData);
-    function TakeBatch(Batch: TObjectList<TOTelSpanData>): Boolean;
+    procedure Submit(Data: T);
+    function TakeBatch(Batch: TObjectList<T>): Boolean;
     procedure Complete(Count, Rejected: Integer; Warning: Boolean);
-    function Flush(TimeoutMs: Cardinal): Boolean;
+    function RequestFlush: Int64;
+    function WaitFor(Target: Int64; Deadline: UInt64): Boolean;
     procedure Close;
     procedure Abandon;
     function Dropped: Int64;
@@ -27,24 +28,23 @@ type
     function Warnings: Int64;
   end;
 
-implementation
+  TOTelSpanQueue = TOTelBatchQueue<TOTelSpanData>;
 
-uses
-  Winapi.Windows;
+implementation
 
 const
   QueueLimit = 2048;
   BatchLimit = 128;
   ScheduleDelayMs = 1000;
 
-constructor TOTelSpanQueue.Create(Disabled: Boolean);
+constructor TOTelBatchQueue<T>.Create(Disabled: Boolean);
 begin
   inherited Create;
-  FItems := TQueue<TOTelSpanData>.Create;
+  FItems := TQueue<T>.Create;
   FDisabled := Disabled;
 end;
 
-destructor TOTelSpanQueue.Destroy;
+destructor TOTelBatchQueue<T>.Destroy;
 begin
   if Assigned(FItems) then
     while FItems.Count > 0 do FItems.Dequeue.Free;
@@ -52,7 +52,7 @@ begin
   inherited;
 end;
 
-function TOTelSpanQueue.IsAccepting: Boolean;
+function TOTelBatchQueue<T>.IsAccepting: Boolean;
 begin
   TMonitor.Enter(Self);
   try
@@ -62,7 +62,7 @@ begin
   end;
 end;
 
-procedure TOTelSpanQueue.Submit(Data: TOTelSpanData);
+procedure TOTelBatchQueue<T>.Submit(Data: T);
 begin
   TMonitor.Enter(Self);
   try
@@ -82,7 +82,7 @@ begin
   end;
 end;
 
-function TOTelSpanQueue.TakeBatch(Batch: TObjectList<TOTelSpanData>): Boolean;
+function TOTelBatchQueue<T>.TakeBatch(Batch: TObjectList<T>): Boolean;
 var
   Elapsed: UInt64;
 begin
@@ -111,7 +111,7 @@ begin
   end;
 end;
 
-procedure TOTelSpanQueue.Complete(Count, Rejected: Integer; Warning: Boolean);
+procedure TOTelBatchQueue<T>.Complete(Count, Rejected: Integer; Warning: Boolean);
 begin
   TMonitor.Enter(Self);
   try
@@ -124,17 +124,24 @@ begin
   end;
 end;
 
-function TOTelSpanQueue.Flush(TimeoutMs: Cardinal): Boolean;
-var
-  Deadline, NowTick: UInt64;
-  Target: Int64;
+function TOTelBatchQueue<T>.RequestFlush: Int64;
 begin
-  Deadline := GetTickCount64 + TimeoutMs;
   TMonitor.Enter(Self);
   try
-    Target := FAccepted;
-    FFlushTarget := Target;
+    Result := FAccepted;
+    FFlushTarget := Result;
     TMonitor.PulseAll(Self);
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TOTelBatchQueue<T>.WaitFor(Target: Int64; Deadline: UInt64): Boolean;
+var
+  NowTick: UInt64;
+begin
+  TMonitor.Enter(Self);
+  try
     while FCompleted < Target do
     begin
       NowTick := GetTickCount64;
@@ -147,7 +154,7 @@ begin
   end;
 end;
 
-procedure TOTelSpanQueue.Close;
+procedure TOTelBatchQueue<T>.Close;
 begin
   TMonitor.Enter(Self);
   try
@@ -158,7 +165,7 @@ begin
   end;
 end;
 
-procedure TOTelSpanQueue.Abandon;
+procedure TOTelBatchQueue<T>.Abandon;
 var
   Count: Integer;
 begin
@@ -175,19 +182,19 @@ begin
   end;
 end;
 
-function TOTelSpanQueue.Dropped: Int64;
+function TOTelBatchQueue<T>.Dropped: Int64;
 begin
   TMonitor.Enter(Self);
   try Result := FDropped; finally TMonitor.Exit(Self); end;
 end;
 
-function TOTelSpanQueue.Rejected: Int64;
+function TOTelBatchQueue<T>.Rejected: Int64;
 begin
   TMonitor.Enter(Self);
   try Result := FRejected; finally TMonitor.Exit(Self); end;
 end;
 
-function TOTelSpanQueue.Warnings: Int64;
+function TOTelBatchQueue<T>.Warnings: Int64;
 begin
   TMonitor.Enter(Self);
   try Result := FWarnings; finally TMonitor.Exit(Self); end;
