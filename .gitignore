@@ -1,0 +1,15 @@
+# Delphi IDE settings and local history
+*.dproj.local
+*.groupproj.local
+*.identcache
+*.dsk
+__history/
+__recovery/
+
+# Delphi compiler output
+*.dcu
+*.dcp
+*.bpl
+*.rsm
+*.map
+*.tds
