@@ -13,3 +13,5 @@ msbuild source\OTel4D.dproj /t:Build /p:Config=Debug /p:Platform=Win32
 Use a disposable checkout and set package output paths to a local build directory when validating an untrusted or unreleased change. Record whether the build used committed or working-tree inputs. A package build and a consumer exercising a real trace provide different evidence.
 
 Run `tests\run-configuration.cmd` from a Tokyo Command Prompt to build the Debug package and exercise the public configuration API from a package-linked Win32 consumer. The consumer controls its own process environment. It checks setting precedence, fallback defaults, snapshot isolation, URL rendering and invalid input.
+
+Run `tests\run-traces.cmd` to exercise trace capture and delivery through the package and decode actual HTTP requests using the official Python Protobuf bindings. Use the [verification guide](../docs/operations.md#verification) for prerequisites and the [Collector walkthrough](../docs/integration.md#run-the-local-example) for the backend interoperability check.
