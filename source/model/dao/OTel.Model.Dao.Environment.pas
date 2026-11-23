@@ -5,18 +5,22 @@ interface
 uses
   OTel.Model.Dto.Configuration;
 
-function ReadEnvironmentOptions: TOTelOptions;
+type
+  TEnvironmentDao = class
+  public
+    class procedure ReadInto(const Options: TOTelOptions); static;
+  end;
 
 implementation
 
 uses
   System.SysUtils;
 
-function ReadEnvironmentOptions: TOTelOptions;
+class procedure TEnvironmentDao.ReadInto(const Options: TOTelOptions);
 begin
-  Result.ServiceName := GetEnvironmentVariable('OTEL_SERVICE_NAME');
-  Result.Endpoint := GetEnvironmentVariable('OTEL_EXPORTER_OTLP_ENDPOINT');
-  Result.TracesEndpoint := GetEnvironmentVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT');
+  Options.ServiceName := GetEnvironmentVariable('OTEL_SERVICE_NAME');
+  Options.Endpoint := GetEnvironmentVariable('OTEL_EXPORTER_OTLP_ENDPOINT');
+  Options.TracesEndpoint := GetEnvironmentVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT');
 end;
 
 end.

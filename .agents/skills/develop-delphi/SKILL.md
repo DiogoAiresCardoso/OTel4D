@@ -11,6 +11,10 @@ When adding a component for the IDE palette, put its implementation in the runti
 
 ## Write Object Pascal for the target
 
+OTel4D uses classes for its Delphi code. Define every DTO and domain entity as a class, including small data carriers with only one field. Put controller, view, DAO and service behavior on the class that owns it. Use private methods for helpers and class methods for operations that need no instance state. Standalone functions and procedures are prohibited in project units, tests and samples. Keep the program entry block short and delegate to a class when it needs application logic.
+
+Avoid introducing record types in project code. Existing RTL or platform value types can be used where their APIs require them. When replacing a record with a class, specify who creates and frees each object. Check that modifying or freeing an input leaves previously returned snapshots usable. [Project coding standard](../../../docs/engineering/CODING_STANDARDS.md)
+
 - Use descriptive PascalCase identifiers, lowercase keywords and two spaces per indentation level. For example, a class might be named `TSpanBuffer`, an interface `ISpanBuffer`, an exception `ESpanBufferError` and a field `FCapacity`. Keep existing public and designer-streamed names stable. [Embarcadero Object Pascal Style Guide](https://docwiki.embarcadero.com/RADStudio/Alexandria/en/Delphi%E2%80%99s_Object_Pascal_Style_Guide)
 - Match a new unit's filename to its declared name and follow the project's unit namespace. Put dependencies needed for public declarations in the interface `uses` clause. Move implementation-only dependencies to the implementation section. [Embarcadero unit structure](https://docwiki.embarcadero.com/RADStudio/Alexandria/en/Source_Code_Files_Units_and_Their_Structure)
 - Check RTL and framework signatures against the installed Tokyo sources or compiler. Declare local variables in a `var` block before `begin`. Inline declarations, including `for var`, arrived in Delphi 10.3. [Embarcadero language version note](https://blogs.embarcadero.com/introducing-inline-variables-in-the-delphi-language/)

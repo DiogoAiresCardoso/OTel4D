@@ -7,13 +7,25 @@ uses
   Winapi.Windows,
   OTel.Api;
 
-procedure Check(const Condition: Boolean; const Scenario: string);
+type
+  TConfigurationSmoke = class
+  strict private
+    class procedure Check(Condition: Boolean; const Scenario: string); static;
+    class procedure SetVariable(const Name, Value: string); static;
+    class procedure CheckValues(const Options: TOTelOptions; const Service, Endpoint: string); static;
+    class procedure CheckOverrides; static;
+    class procedure CheckInvalidEndpoint(const Endpoint: string); static;
+  public
+    class procedure Run; static;
+  end;
+
+class procedure TConfigurationSmoke.Check(Condition: Boolean; const Scenario: string);
 begin
   if not Condition then
     raise Exception.Create(Scenario);
 end;
 
-procedure SetVariable(const Name, Value: string);
+class procedure TConfigurationSmoke.SetVariable(const Name, Value: string);
 begin
   if Value = '' then
     Check(Winapi.Windows.SetEnvironmentVariable(PChar(Name), nil) or
@@ -22,57 +34,91 @@ begin
     Check(Winapi.Windows.SetEnvironmentVariable(PChar(Name), PChar(Value)), 'Could not set a test variable.');
 end;
 
-procedure CheckInvalidEndpoint(const Endpoint: string);
+class procedure TConfigurationSmoke.CheckInvalidEndpoint(const Endpoint: string);
 var
   Options: TOTelOptions;
 begin
-  Options.TracesEndpoint := Endpoint;
+  Options := TOTelOptions.Create;
   try
-    LoadConfiguration(Options);
-  except
-    on E: EOTelConfiguration do
-    begin
-      Check(Pos('private-value', E.Message) = 0, 'Configuration diagnostics exposed the endpoint.');
-      Exit;
+    Options.TracesEndpoint := Endpoint;
+    try
+      TOTelConfigurationController.LoadConfiguration(Options).Free;
+    except
+      on E: EOTelConfiguration do
+      begin
+        Check(Pos('private-value', E.Message) = 0, 'Configuration diagnostics exposed the endpoint.');
+        Check(Options.TracesEndpoint = Endpoint, 'Error handling modified the input.');
+        Exit;
+      end;
     end;
+    raise Exception.Create('An invalid endpoint was accepted.');
+  finally
+    Options.Free;
   end;
-  raise Exception.Create('An invalid endpoint was accepted.');
 end;
 
-procedure Run;
+class procedure TConfigurationSmoke.CheckValues(const Options: TOTelOptions; const Service, Endpoint: string);
+var
+  Config: TOTelConfiguration;
+begin
+  Config := TOTelConfigurationController.LoadConfiguration(Options);
+  try
+    Check(Config.ServiceName = Service, 'Incorrect service name');
+    Check(Config.TracesEndpoint = Endpoint, 'Incorrect trace destination');
+  finally
+    Config.Free;
+  end;
+end;
+
+class procedure TConfigurationSmoke.CheckOverrides;
 var
   Options: TOTelOptions;
-  Initial, Config: TOTelConfiguration;
+  Snapshot: TOTelConfiguration;
+begin
+  Snapshot := nil;
+  try
+    Options := TOTelOptions.Create;
+    try
+      Options.Endpoint := 'http://[::1]:4318/prefix';
+      CheckValues(Options, 'inventory', 'http://[::1]:4318/prefix/v1/traces');
+      Check(Options.ServiceName = '', 'Environment settings leaked into caller options.');
+      Options.ServiceName := 'billing';
+      Options.TracesEndpoint := 'https://receiver.example/exact%2Fpath?key=a%2Bb';
+      Snapshot := TOTelConfigurationController.LoadConfiguration(Options);
+      Options.ServiceName := 'worker';
+      Options.TracesEndpoint := 'http://receiver.example:/';
+      CheckValues(Options, 'worker', Options.TracesEndpoint);
+    finally
+      Options.Free;
+    end;
+    Check(Snapshot.ServiceName = 'billing', 'The snapshot did not retain its service name.');
+    Check(Snapshot.TracesEndpoint = 'https://receiver.example/exact%2Fpath?key=a%2Bb',
+      'The snapshot did not retain its trace endpoint.');
+  finally
+    Snapshot.Free;
+  end;
+end;
+
+class procedure TConfigurationSmoke.Run;
+var
+  Initial: TOTelConfiguration;
 begin
   SetVariable('OTEL_SERVICE_NAME', '');
   SetVariable('OTEL_EXPORTER_OTLP_ENDPOINT', '');
   SetVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', '');
-  Initial := LoadConfiguration;
-  Check(Initial.ServiceName = 'unknown_service:' + ExtractFileName(ParamStr(0)), 'Default service name');
-  Check(Initial.TracesEndpoint = 'http://localhost:4318/v1/traces', 'Default destination');
-
-  SetVariable('OTEL_SERVICE_NAME', 'inventory');
-  SetVariable('OTEL_EXPORTER_OTLP_ENDPOINT', 'https://receiver.example/otel%2Ftenant/?key=test');
-  Config := LoadConfiguration;
-  Check(Config.ServiceName = 'inventory', 'Environment service name');
-  Check(Config.TracesEndpoint = 'https://receiver.example/otel%2Ftenant/v1/traces?key=test', 'Base path and query');
-  SetVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'https://receiver.example?route=trace');
-  Config := LoadConfiguration;
-  Check(Config.TracesEndpoint = 'https://receiver.example/?route=trace', 'Signal endpoint at root');
-
-  Options.Endpoint := 'http://[::1]:4318/prefix';
-  Config := LoadConfiguration(Options);
-  Check(Config.ServiceName = 'inventory', 'Inherit service name independently');
-  Check(Config.TracesEndpoint = 'http://[::1]:4318/prefix/v1/traces', 'Code base overrides environment');
-  Options.ServiceName := 'billing';
-  Options.TracesEndpoint := 'https://receiver.example/exact%2Fpath?key=a%2Bb';
-  Config := LoadConfiguration(Options);
-  Check(Config.ServiceName = 'billing', 'Code service name');
-  Check(Config.TracesEndpoint = Options.TracesEndpoint, 'Code signal override preserved');
-  Options.TracesEndpoint := 'http://receiver.example:/';
-  Config := LoadConfiguration(Options);
-  Check(Config.TracesEndpoint = Options.TracesEndpoint, 'Empty port uses the scheme default');
-  Check(Initial.TracesEndpoint = 'http://localhost:4318/v1/traces', 'An earlier snapshot changed');
+  Initial := TOTelConfigurationController.LoadConfiguration;
+  try
+    Check(Initial.ServiceName = 'unknown_service:' + ExtractFileName(ParamStr(0)), 'Default service name');
+    SetVariable('OTEL_SERVICE_NAME', 'inventory');
+    SetVariable('OTEL_EXPORTER_OTLP_ENDPOINT', 'https://receiver.example/otel%2Ftenant/?key=test');
+    CheckValues(nil, 'inventory', 'https://receiver.example/otel%2Ftenant/v1/traces?key=test');
+    SetVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'https://receiver.example?route=trace');
+    CheckValues(nil, 'inventory', 'https://receiver.example/?route=trace');
+    CheckOverrides;
+    Check(Initial.TracesEndpoint = 'http://localhost:4318/v1/traces', 'An earlier snapshot changed');
+  finally
+    Initial.Free;
+  end;
 
   CheckInvalidEndpoint('relative/path');
   CheckInvalidEndpoint('ftp://receiver.example/');
@@ -93,7 +139,7 @@ end;
 
 begin
   try
-    Run;
+    TConfigurationSmoke.Run;
     Writeln('Configuration smoke tests passed.');
   except
     on E: Exception do

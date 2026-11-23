@@ -5,7 +5,14 @@ interface
 uses
   OTel.Model.Dto.Configuration;
 
-function RenderTracesEndpoint(const Options: TOTelOptions): string;
+type
+  TTraceEndpointView = class
+  strict private
+    class procedure InvalidEndpoint; static;
+    class procedure ValidateAuthority(const Authority: string); static;
+  public
+    class function Render(const Options: TOTelOptions): string; static;
+  end;
 
 implementation
 
@@ -15,13 +22,13 @@ uses
   System.RegularExpressions,
   Winapi.Winsock2;
 
-procedure InvalidEndpoint;
+class procedure TTraceEndpointView.InvalidEndpoint;
 begin
   // A configured URL can contain credentials. Keep its value out of diagnostics.
   raise EOTelConfiguration.Create('The traces destination must be an absolute HTTP or HTTPS URL with a valid host and port.');
 end;
 
-procedure ValidateAuthority(const Authority: string);
+class procedure TTraceEndpointView.ValidateAuthority(const Authority: string);
 const
   RegName = '(?:[A-Za-z0-9._~!$&''()*+,;=-]|%[0-9A-Fa-f]{2})+';
   IpLiteral = '\[(?<ip>[0-9A-Fa-f:.]+)(?:%25(?:[A-Za-z0-9._~-]|%[0-9A-Fa-f]{2})+)?\]';
@@ -48,7 +55,7 @@ begin
     InvalidEndpoint;
 end;
 
-function RenderTracesEndpoint(const Options: TOTelOptions): string;
+class function TTraceEndpointView.Render(const Options: TOTelOptions): string;
 var
   SignalSpecific: Boolean;
   QueryStart, AuthorityStart, AuthorityEnd, PathStart: Integer;
