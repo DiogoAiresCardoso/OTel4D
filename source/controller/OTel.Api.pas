@@ -4,7 +4,8 @@ interface
 
 uses
   OTel.Model.Dto.Configuration, OTel.Model.Dto.Span, OTel.Model.Service.TraceContext,
-  OTel.Controller.Trace, OTel.Controller.TraceClient;
+  OTel.Controller.Trace, OTel.Controller.TraceClient, OTel.Model.Dto.Telemetry,
+  OTel.Model.Dto.Log, OTel.Controller.Logger;
 
 type
   TOTelOptions = OTel.Model.Dto.Configuration.TOTelOptions;
@@ -16,6 +17,10 @@ type
   TOTelTraceContext = OTel.Model.Service.TraceContext.TOTelTraceContext;
   TOTelSpanKind = OTel.Model.Dto.Span.TOTelSpanKind;
   TOTelStatus = OTel.Model.Dto.Span.TOTelStatus;
+
+  TOTelLogger = OTel.Controller.Logger.TOTelLogger;
+  TOTelAttributes = OTel.Model.Dto.Telemetry.TOTelAttributes;
+  TOTelLogLevel = OTel.Model.Dto.Log.TOTelLogLevel;
 
   TOTel = class
   public
@@ -31,6 +36,12 @@ type
   end;
 
 const
+  llTrace = OTel.Model.Dto.Log.llTrace;
+  llDebug = OTel.Model.Dto.Log.llDebug;
+  llInfo = OTel.Model.Dto.Log.llInfo;
+  llWarn = OTel.Model.Dto.Log.llWarn;
+  llError = OTel.Model.Dto.Log.llError;
+  llFatal = OTel.Model.Dto.Log.llFatal;
   skInternal = OTel.Model.Dto.Span.skInternal;
   skServer = OTel.Model.Dto.Span.skServer;
   skClient = OTel.Model.Dto.Span.skClient;
@@ -64,6 +75,9 @@ begin
     if not (ForClient and Options.SdkDisabled) then Endpoint := TTraceEndpointView.Render(Options);
     Result := TOTelConfiguration.Create(Options.ServiceName, Endpoint,
       Options.TraceHeaders, Options.SdkDisabled, Options.TraceTimeoutMs);
+    Result.Additional.Logs.Assign(Options.Logs);
+    Result.Additional.Metrics.Assign(Options.Metrics);
+    Result.Additional.MetricsIntervalMs := Options.MetricsIntervalMs;
   finally
     Options.Free;
   end;

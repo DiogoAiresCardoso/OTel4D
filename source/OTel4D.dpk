@@ -33,6 +33,12 @@ requires
   rtl;
 
 contains
+  OTel.Model.Dto.Telemetry in 'model\dto\OTel.Model.Dto.Telemetry.pas',
+  OTel.Model.Dto.Log in 'model\dto\OTel.Model.Dto.Log.pas',
+  OTel.Controller.Logger in 'controller\OTel.Controller.Logger.pas',
+  OTel.Controller.BatchedSignal in 'controller\OTel.Controller.BatchedSignal.pas',
+  OTel.View.LogProtobuf in 'view\OTel.View.LogProtobuf.pas',
+  OTel.View.Protobuf in 'view\OTel.View.Protobuf.pas',
   OTel.Api in 'controller\OTel.Api.pas',
   OTel.Model.Dto.Configuration in 'model\dto\OTel.Model.Dto.Configuration.pas',
   OTel.Model.Dao.Environment in 'model\dao\OTel.Model.Dao.Environment.pas',

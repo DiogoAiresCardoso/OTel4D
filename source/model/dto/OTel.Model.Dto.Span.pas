@@ -3,7 +3,7 @@ unit OTel.Model.Dto.Span;
 interface
 
 uses
-  System.SysUtils, System.Generics.Collections;
+  System.SysUtils, System.Generics.Collections, OTel.Model.Dto.Telemetry;
 
 type
   TOTelSpanKind = (skInternal, skServer, skClient, skProducer, skConsumer);
@@ -30,11 +30,7 @@ type
     destructor Destroy; override;
   end;
 
-  IOTelSpanSink = interface
-    function IsAccepting: Boolean;
-    // Ownership transfers on entry, including when the queue is full or closed.
-    procedure Submit(Data: TOTelSpanData);
-  end;
+  IOTelSpanSink = IOTelSink<TOTelSpanData>;
 
 implementation
 

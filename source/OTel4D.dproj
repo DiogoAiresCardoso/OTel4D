@@ -1,4 +1,4 @@
-﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{D3D38DD1-7419-4F3C-8257-D991AE9230DA}</ProjectGuid>
         <MainSource>OTel4D.dpk</MainSource>
@@ -88,6 +88,12 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.Telemetry.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.Log.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Logger.pas"/>
+        <DCCReference Include="controller\OTel.Controller.BatchedSignal.pas"/>
+        <DCCReference Include="view\OTel.View.LogProtobuf.pas"/>
+        <DCCReference Include="view\OTel.View.Protobuf.pas"/>
         <DCCReference Include="controller\OTel.Controller.SpanQueue.pas"/>
         <DCCReference Include="controller\OTel.Controller.Trace.pas"/>
         <DCCReference Include="controller\OTel.Controller.TraceClient.pas"/>

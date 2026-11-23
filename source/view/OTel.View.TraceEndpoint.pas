@@ -13,6 +13,7 @@ type
     class procedure ValidateAuthority(const Authority: string); static;
   public
     class function Render(const Options: TOTelOptions): string; static;
+    class function RenderSignal(const BaseUrl, SignalUrl, Suffix: string): string; static;
   end;
 
 implementation
@@ -26,7 +27,7 @@ uses
 class procedure TTraceEndpointView.InvalidEndpoint;
 begin
   // A configured URL can contain credentials. Keep its value out of diagnostics.
-  raise EOTelConfiguration.Create('The trace endpoint must be a valid absolute HTTP or HTTPS URL.');
+  raise EOTelConfiguration.Create('The OTLP endpoint must be a valid absolute HTTP or HTTPS URL.');
 end;
 
 class procedure TTraceEndpointView.ValidateUrlText(const Url: string);
@@ -80,18 +81,23 @@ begin
 end;
 
 class function TTraceEndpointView.Render(const Options: TOTelOptions): string;
+begin
+  if Options = nil then
+    raise EArgumentNilException.Create('Options must be assigned.');
+  Result := RenderSignal(Options.Endpoint, Options.TracesEndpoint, 'v1/traces');
+end;
+
+class function TTraceEndpointView.RenderSignal(const BaseUrl, SignalUrl, Suffix: string): string;
 var
   SignalSpecific: Boolean;
   QueryStart, AuthorityStart, AuthorityEnd, PathStart: Integer;
   Path, Query: string;
 begin
-  if Options = nil then
-    raise EArgumentNilException.Create('Options must be assigned.');
-  SignalSpecific := Options.TracesEndpoint <> '';
+  SignalSpecific := SignalUrl <> '';
   if SignalSpecific then
-    Result := Options.TracesEndpoint
+    Result := SignalUrl
   else
-    Result := Options.Endpoint;
+    Result := BaseUrl;
   ValidateUrlText(Result);
 
   // Preserve the receiver's path and query byte for byte when inserting a suffix.
@@ -109,7 +115,7 @@ begin
   if (PathStart = 0) or (not SignalSpecific and (Path[High(Path)] <> '/')) then
     Path := Path + '/';
   if not SignalSpecific then
-    Path := Path + 'v1/traces';
+    Path := Path + Suffix;
   Result := Path + Query;
 end;
 
