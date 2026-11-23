@@ -14,6 +14,13 @@ program ShowTraceDestination;
 uses
   OTel.Api;
 
+type
+  TExampleApplication = class
+  public
+    class procedure Run; static;
+  end;
+
+class procedure TExampleApplication.Run;
 var
   Options: TOTelOptions;
   Config: TOTelConfiguration;
@@ -31,6 +38,10 @@ begin
   finally
     Options.Free;
   end;
+end;
+
+begin
+  TExampleApplication.Run;
 end.
 ```
 
@@ -43,7 +54,7 @@ When migrating from the record API, assigning one options or configuration varia
 | Service name | `Options.ServiceName`, `OTEL_SERVICE_NAME`, then `unknown_service:<executable name>`. If the name is unavailable, the default is `unknown_service`. |
 | Trace destination | `Options.TracesEndpoint`, `Options.Endpoint`, `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT`, then `http://localhost:4318` as the base URL. |
 
-Empty settings fall through to the next candidate. A base URL gets the relative path `v1/traces` after any existing prefix. A trace-specific URL keeps its path and query, with `/` used for an empty path. Supply an absolute HTTP or HTTPS URL and use ASCII or Punycode for hostnames. Invalid destinations, URL credentials and fragments raise `EOTelConfiguration`. The error omits the supplied URL. [OTLP/HTTP endpoint rules](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp)
+Empty settings fall through to the next candidate. A base URL gets the relative path `v1/traces` after any existing prefix. A trace-specific URL keeps its path and query, with `/` used for an empty path. Supply an absolute HTTP or HTTPS URL and use ASCII or Punycode for hostnames. Each percent escape requires two hexadecimal digits. Valid escapes keep their original spelling. Invalid destinations, URL credentials and fragments raise `EOTelConfiguration`. The error omits the supplied URL. [OTLP/HTTP endpoint rules](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#endpoint-urls-for-otlphttp) · [URI percent encoding](https://www.rfc-editor.org/rfc/rfc3986.html#section-2.1)
 
 ## Project layout
 

@@ -10,6 +10,7 @@ type
   strict private
     class function DefaultServiceName: string; static;
   public
+    // Updates the supplied options in place. Overrides may be nil and is read-only.
     class procedure ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions); static;
   end;
 
@@ -33,6 +34,8 @@ end;
 
 class procedure TConfigurationService.ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions);
 begin
+  if Options = nil then
+    raise EArgumentNilException.Create('Options must be assigned.');
   if Assigned(Overrides) then
   begin
     if Overrides.ServiceName <> '' then
