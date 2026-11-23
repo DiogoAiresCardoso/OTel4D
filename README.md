@@ -7,23 +7,36 @@ OTel4D is a Delphi library for direct OTLP/HTTP delivery. The base package resol
 Open [OTel4D.dproj](source/OTel4D.dproj) to build the runtime package. To compile the library into an application from source, add `source/controller`, `source/model/dto`, `source/model/dao`, `source/model/service` and `source/view` to its Delphi unit search path. Application code uses a single unit.
 
 ```pascal
+program ShowTraceDestination;
+
+{$APPTYPE CONSOLE}
+
 uses
   OTel.Api;
 
-procedure ConfigureTelemetry;
 var
   Options: TOTelOptions;
   Config: TOTelConfiguration;
 begin
-  Options := Default(TOTelOptions);
-  Options.ServiceName := 'billing';
-  Options.Endpoint := 'https://collector.example/otel';
-  Config := LoadConfiguration(Options);
-  // Config.TracesEndpoint is https://collector.example/otel/v1/traces.
-end;
+  Options := TOTelOptions.Create;
+  try
+    Options.ServiceName := 'billing';
+    Options.Endpoint := 'https://collector.example/otel';
+    Config := TOTelConfigurationController.LoadConfiguration(Options);
+    try
+      Writeln(Config.TracesEndpoint);
+    finally
+      Config.Free;
+    end;
+  finally
+    Options.Free;
+  end;
+end.
 ```
 
-`LoadConfiguration` without arguments reads the process environment. Each call returns an independent snapshot and performs no network I/O. Configuration is the implemented part of the API.
+`TOTelConfigurationController.LoadConfiguration` without arguments reads the process environment. The controller borrows any supplied options for the duration of the call. Each call returns a new, caller-owned configuration that can outlive the options. The example prints `https://collector.example/otel/v1/traces` with no network I/O.
+
+When migrating from the record API, assigning one options or configuration variable to another shares the same object. Give each instance one owner. Create another `TOTelOptions` instance when settings need to be edited independently.
 
 | Setting | Resolution order, highest priority first |
 | --- | --- |

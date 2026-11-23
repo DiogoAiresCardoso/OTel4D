@@ -6,14 +6,19 @@ uses
   System.SysUtils;
 
 type
-  TOTelOptions = record
-    ServiceName: string;
-    Endpoint: string;
-    TracesEndpoint: string;
+  TOTelOptions = class
+  strict private
+    FServiceName: string;
+    FEndpoint: string;
+    FTracesEndpoint: string;
+  public
+    property ServiceName: string read FServiceName write FServiceName;
+    property Endpoint: string read FEndpoint write FEndpoint;
+    property TracesEndpoint: string read FTracesEndpoint write FTracesEndpoint;
   end;
 
-  TOTelConfiguration = record
-  private
+  TOTelConfiguration = class
+  strict private
     FServiceName: string;
     FTracesEndpoint: string;
   public
@@ -28,6 +33,7 @@ implementation
 
 constructor TOTelConfiguration.Create(const AServiceName, ATracesEndpoint: string);
 begin
+  inherited Create;
   FServiceName := AServiceName;
   FTracesEndpoint := ATracesEndpoint;
 end;

@@ -5,7 +5,13 @@ interface
 uses
   OTel.Model.Dto.Configuration;
 
-function ResolveOptions(const Overrides, Environment: TOTelOptions): TOTelOptions;
+type
+  TConfigurationService = class
+  strict private
+    class function DefaultServiceName: string; static;
+  public
+    class procedure ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions); static;
+  end;
 
 implementation
 
@@ -15,7 +21,7 @@ uses
 const
   DefaultEndpoint = 'http://localhost:4318';
 
-function DefaultServiceName: string;
+class function TConfigurationService.DefaultServiceName: string;
 var
   ExecutableName: string;
 begin
@@ -25,21 +31,22 @@ begin
     Result := Result + ':' + ExecutableName;
 end;
 
-function ResolveOptions(const Overrides, Environment: TOTelOptions): TOTelOptions;
+class procedure TConfigurationService.ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions);
 begin
-  Result := Overrides;
-  if Result.ServiceName = '' then
-    Result.ServiceName := Environment.ServiceName;
-  if Result.ServiceName = '' then
-    Result.ServiceName := DefaultServiceName;
-
-  if (Result.TracesEndpoint = '') and (Result.Endpoint = '') then
+  if Assigned(Overrides) then
   begin
-    Result.TracesEndpoint := Environment.TracesEndpoint;
-    Result.Endpoint := Environment.Endpoint;
+    if Overrides.ServiceName <> '' then
+      Options.ServiceName := Overrides.ServiceName;
+    if (Overrides.TracesEndpoint <> '') or (Overrides.Endpoint <> '') then
+    begin
+      Options.TracesEndpoint := Overrides.TracesEndpoint;
+      Options.Endpoint := Overrides.Endpoint;
+    end;
   end;
-  if (Result.TracesEndpoint = '') and (Result.Endpoint = '') then
-    Result.Endpoint := DefaultEndpoint;
+  if Options.ServiceName = '' then
+    Options.ServiceName := DefaultServiceName;
+  if (Options.TracesEndpoint = '') and (Options.Endpoint = '') then
+    Options.Endpoint := DefaultEndpoint;
 end;
 
 end.

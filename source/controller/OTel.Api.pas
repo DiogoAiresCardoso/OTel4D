@@ -10,8 +10,11 @@ type
   TOTelConfiguration = OTel.Model.Dto.Configuration.TOTelConfiguration;
   EOTelConfiguration = OTel.Model.Dto.Configuration.EOTelConfiguration;
 
-function LoadConfiguration: TOTelConfiguration; overload;
-function LoadConfiguration(const Overrides: TOTelOptions): TOTelConfiguration; overload;
+  TOTelConfigurationController = class
+  public
+    // Borrows Overrides for this call. The caller owns the returned snapshot.
+    class function LoadConfiguration(const Overrides: TOTelOptions = nil): TOTelConfiguration; static;
+  end;
 
 implementation
 
@@ -20,17 +23,18 @@ uses
   OTel.Model.Service.Configuration,
   OTel.View.TraceEndpoint;
 
-function LoadConfiguration: TOTelConfiguration;
-begin
-  Result := LoadConfiguration(Default(TOTelOptions));
-end;
-
-function LoadConfiguration(const Overrides: TOTelOptions): TOTelConfiguration;
+class function TOTelConfigurationController.LoadConfiguration(const Overrides: TOTelOptions): TOTelConfiguration;
 var
   Options: TOTelOptions;
 begin
-  Options := ResolveOptions(Overrides, ReadEnvironmentOptions);
-  Result := TOTelConfiguration.Create(Options.ServiceName, RenderTracesEndpoint(Options));
+  Options := TOTelOptions.Create;
+  try
+    TEnvironmentDao.ReadInto(Options);
+    TConfigurationService.ApplyOverridesAndDefaults(Options, Overrides);
+    Result := TOTelConfiguration.Create(Options.ServiceName, TTraceEndpointView.Render(Options));
+  finally
+    Options.Free;
+  end;
 end;
 
 end.
