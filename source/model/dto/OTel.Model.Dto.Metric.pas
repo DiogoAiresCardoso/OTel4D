@@ -3,17 +3,12 @@ unit OTel.Model.Dto.Metric;
 interface
 
 uses
-  System.SysUtils, System.Generics.Collections;
+  System.Generics.Collections, OTel.Model.Dto.MetricDefinition;
 
 type
-  TOTelMetricKind = (mkCounter, mkUpDownCounter, mkHistogram);
+  TOTelMetricKind = OTel.Model.Dto.MetricDefinition.TOTelMetricKind;
 
-  TOTelMetricDefinition = class
-  public
-    Scope, Version, Name, UnitName, Description: string;
-    Kind: TOTelMetricKind;
-    Bounds: TArray<Double>;
-  end;
+  TOTelMetricDefinition = OTel.Model.Dto.MetricDefinition.TOTelMetricDefinition;
 
   TOTelMetricPoint = class
   public
@@ -25,6 +20,11 @@ type
     Buckets: TArray<UInt64>;
     function Snapshot(Time: UInt64): TOTelMetricPoint;
   end;
+
+const
+  mkCounter = OTel.Model.Dto.MetricDefinition.mkCounter;
+  mkUpDownCounter = OTel.Model.Dto.MetricDefinition.mkUpDownCounter;
+  mkHistogram = OTel.Model.Dto.MetricDefinition.mkHistogram;
 
 implementation
 

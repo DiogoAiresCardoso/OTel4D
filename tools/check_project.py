@@ -27,6 +27,10 @@ SECRET_MARKERS = re.compile(
     r"|\bgh[pousr]_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{50,}\b"
 )
 PASCAL_NONCODE = re.compile(r"'(?:''|[^'\r\n])*'|//[^\n]*|\{[^}]*\}|\(\*.*?\*\)", re.S)
+PASCAL_CLASS = re.compile(
+    r"\b([a-z_]\w*)\s*(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\s*=\s*class\b(?!\s*(?:of\b|;))",
+    re.I,
+)
 FORBIDDEN_IMPORTS = (
     "vcl", "fmx", "firedac", "system.net", "otel.view", "otel.controller",
     "otel.transport", "otel4d.view", "otel4d.controller", "otel4d.transport",
@@ -78,6 +82,19 @@ def model_issues(path, content):
                 name = identifier[1].lower()
                 if any(name == prefix or name.startswith(prefix + ".") for prefix in FORBIDDEN_IMPORTS):
                     yield f"{path}: Model depends on {identifier[1]}"
+
+
+def unit_class_issues(path, content):
+    # Keep newlines in masked comments and literals so findings point at declarations.
+    code = PASCAL_NONCODE.sub(lambda match: re.sub(r"[^\r\n]", " ", match[0]), content)
+    first = None
+    for match in PASCAL_CLASS.finditer(code):
+        name = match[1]
+        if first is None:
+            first = name
+        elif name.casefold() != first.casefold():
+            line = code.count("\n", 0, match.start()) + 1
+            yield f"{path}:{line}: {name} must have its own unit. This file already defines {first}."
 
 
 def skill_issues(path, content):
@@ -138,7 +155,10 @@ def file_issues(root, path, names):
         yield from skill_issues(path, source)
     if path.match(".codex/agents/*.toml"):
         yield from agent_issues(path, source, names)
-    if path.suffix.lower() == ".pas":
+    extension = path.suffix.lower()
+    if extension in {".pas", ".dpr", ".dpk"}:
+        yield from unit_class_issues(path, source)
+    if extension == ".pas":
         yield from model_issues(path, source)
     if path.as_posix() == "docs/engineering/AI_GUARDRAILS.md":
         actual = re.findall(r"^\| (AI-\d{3}) \|", source, re.M)

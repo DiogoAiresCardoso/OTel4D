@@ -3,17 +3,13 @@ unit OTel.Model.Dto.Span;
 interface
 
 uses
-  System.SysUtils, System.Generics.Collections, OTel.Model.Dto.Telemetry;
+  System.SysUtils, System.Generics.Collections, OTel.Model.Dto.Telemetry, OTel.Model.Dto.SpanEvent;
 
 type
   TOTelSpanKind = (skInternal, skServer, skClient, skProducer, skConsumer);
   TOTelStatus = (ssUnset, ssOk, ssError);
 
-  TOTelEvent = class
-  public
-    Name, ExceptionType, ExceptionMessage: string;
-    TimeNanos: UInt64;
-  end;
+  TOTelEvent = OTel.Model.Dto.SpanEvent.TOTelEvent;
 
   TOTelSpanData = class
   public

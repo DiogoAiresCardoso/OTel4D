@@ -33,6 +33,22 @@ requires
   rtl;
 
 contains
+  OTel.View.ProtobufResponse in 'view\OTel.View.ProtobufResponse.pas',
+  OTel.Controller.MetricWorker in 'controller\OTel.Controller.MetricWorker.pas',
+  OTel.Controller.DeliveryWorker in 'controller\OTel.Controller.DeliveryWorker.pas',
+  OTel.Transport.ResponseLimit in 'controller\OTel.Transport.ResponseLimit.pas',
+  OTel.Transport.ResponseStream in 'controller\OTel.Transport.ResponseStream.pas',
+  OTel.Model.Dto.SignalSettings in 'model\dto\OTel.Model.Dto.SignalSettings.pas',
+  OTel.Model.Dto.Options in 'model\dto\OTel.Model.Dto.Options.pas',
+  OTel.Model.Dto.ConfigurationError in 'model\dto\OTel.Model.Dto.ConfigurationError.pas',
+  OTel.Model.Dto.SpanEvent in 'model\dto\OTel.Model.Dto.SpanEvent.pas',
+  OTel.Model.Dto.MetricDefinition in 'model\dto\OTel.Model.Dto.MetricDefinition.pas',
+  OTel.Model.Service.MetricSeries in 'model\service\OTel.Model.Service.MetricSeries.pas',
+  OTel.Controller.Span in 'controller\OTel.Controller.Span.pas',
+  OTel.Controller.MetricInstrument in 'controller\OTel.Controller.MetricInstrument.pas',
+  OTel.Controller.Counter in 'controller\OTel.Controller.Counter.pas',
+  OTel.Controller.Histogram in 'controller\OTel.Controller.Histogram.pas',
+  OTel.Controller.Configuration in 'controller\OTel.Controller.Configuration.pas',
   OTel.Model.Dto.Metric in 'model\dto\OTel.Model.Dto.Metric.pas',
   OTel.Model.Service.MetricStore in 'model\service\OTel.Model.Service.MetricStore.pas',
   OTel.Controller.Meter in 'controller\OTel.Controller.Meter.pas',

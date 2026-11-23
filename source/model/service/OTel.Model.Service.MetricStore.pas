@@ -3,7 +3,8 @@ unit OTel.Model.Service.MetricStore;
 interface
 
 uses
-  System.SysUtils, System.Generics.Collections, OTel.Model.Dto.Metric, OTel.Model.Dto.Telemetry;
+  System.SysUtils, System.Generics.Collections, OTel.Model.Dto.Metric, OTel.Model.Dto.Telemetry,
+  OTel.Model.Service.MetricSeries;
 
 type
   IOTelMetricStore = interface
@@ -13,13 +14,7 @@ type
       const Attributes: TOTelAttributes);
   end;
 
-  TOTelMetricSeries = class(TOTelMetricDefinition)
-  public
-    Points: TObjectDictionary<string, TOTelMetricPoint>;
-    Overflow: TOTelMetricPoint;
-    constructor Create;
-    destructor Destroy; override;
-  end;
+  TOTelMetricSeries = OTel.Model.Service.MetricSeries.TOTelMetricSeries;
 
   TOTelMetricStore = class(TInterfacedObject, IOTelMetricStore)
   strict private
@@ -61,19 +56,6 @@ uses
 const
   InstrumentLimit = 64;
   SeriesLimit = 128;
-
-constructor TOTelMetricSeries.Create;
-begin
-  inherited;
-  Points := TObjectDictionary<string, TOTelMetricPoint>.Create([doOwnsValues]);
-end;
-
-destructor TOTelMetricSeries.Destroy;
-begin
-  Overflow.Free;
-  Points.Free;
-  inherited;
-end;
 
 constructor TOTelMetricStore.Create;
 begin

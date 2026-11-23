@@ -26,6 +26,10 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="OTel.Instrumentation.FireDAC.Binding.pas"/>
+        <DCCReference Include="OTel.Instrumentation.FireDAC.Operation.pas"/>
+        <DCCReference Include="OTel.Instrumentation.FireDAC.Query.pas"/>
+        <DCCReference Include="OTel.Instrumentation.FireDAC.StoredProc.pas"/>
         <DCCReference Include="dbrtl.dcp"/>
         <DCCReference Include="FireDAC.dcp"/>
         <DCCReference Include="FireDACCommon.dcp"/>
