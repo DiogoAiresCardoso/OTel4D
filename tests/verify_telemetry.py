@@ -26,10 +26,17 @@ class Receiver(BaseHTTPRequestHandler):
             requests = self.server.requests.setdefault(self.path, [])
             requests.append(body)
             index = len(requests) - 1
+            if self.path.endswith("/v1/metrics") and index >= 1:
+                self.server.periodic_ready.set()
+            if self.path.endswith("/v1/traces"):
+                self.server.trace_arrived.set()
         responses = self.server.responses.get(self.path, [(200, b"", {})])
         status, response, headers = responses[min(index, len(responses) - 1)]
         if self.server.slow_path == self.path:
             self.server.release.wait(5)
+        if self.server.gate_logs and index == 0 and self.path.endswith("/v1/logs"):
+            self.server.log_arrived.set()
+            self.server.log_saw_trace = self.server.trace_arrived.wait(2)
         self.send_response(status)
         self.send_header("Content-Type", MEDIA)
         self.send_header("Content-Length", str(len(response)))
@@ -43,13 +50,18 @@ class Receiver(BaseHTTPRequestHandler):
 
 
 class TelemetryTest(unittest.TestCase):
-    def exercise(self, mode="", configs=None, responses=None, slow_path=""):
+    def exercise(self, mode="", configs=None, responses=None, slow_path="", gate_logs=False):
         with ThreadingHTTPServer(("127.0.0.1", 0), Receiver) as server:
             server.requests = {}
             server.responses = responses or {}
             server.lock = threading.Lock()
             server.slow_path = slow_path
             server.release = threading.Event()
+            server.periodic_ready = threading.Event()
+            server.trace_arrived = threading.Event()
+            server.log_arrived = threading.Event()
+            server.gate_logs = gate_logs
+            server.log_saw_trace = False
             worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
             worker.start()
             base = f"http://127.0.0.1:{server.server_port}"
@@ -57,19 +69,31 @@ class TelemetryTest(unittest.TestCase):
             env.update(OTEL_SERVICE_NAME="test.multisignal", OTEL_EXPORTER_OTLP_ENDPOINT=base + "/tenant")
             for key, value in (configs or {}).items():
                 env[key] = value.replace("{base}", base)
+            args = [mode] if isinstance(mode, str) else mode
             try:
-                with subprocess.Popen([str(self.executable), mode], env=env, stdout=subprocess.PIPE,
+                with subprocess.Popen([str(self.executable), *args], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT, text=True) as app:
-                    if slow_path:
-                        marker = app.stdout.readline()
-                        server.release.set()
-                        self.assertEqual(marker.strip(), "release receiver")
-                    output, _ = app.communicate(timeout=35)
+                    try:
+                        if slow_path:
+                            marker = app.stdout.readline()
+                            server.release.set()
+                            self.assertEqual(marker.strip(), "release receiver")
+                        if mode in ("periodic", "gate"):
+                            ready = server.periodic_ready if mode == "periodic" else server.log_arrived
+                            self.assertTrue(ready.wait(8), "Expected the background receiver to receive the requested signal.")
+                            app.stdin.write("\n")
+                            app.stdin.flush()
+                        output, _ = app.communicate(timeout=35)
+                    finally:
+                        if app.poll() is None:
+                            app.kill()
                     self.assertEqual(app.returncode, 0, output)
             finally:
                 server.release.set()
                 server.shutdown()
                 worker.join()
+            if gate_logs:
+                self.assertTrue(server.log_saw_trace, "Trace delivery waited for the logs receiver.")
             return server.requests, output
 
     @staticmethod
@@ -136,6 +160,11 @@ class TelemetryTest(unittest.TestCase):
         requests, _ = self.exercise(configs={"OTEL_SDK_DISABLED": "true"})
         self.assertEqual(requests, {})
 
+    def test_slow_logs_do_not_block_traces(self):
+        requests, output = self.exercise(mode="gate", gate_logs=True)
+        self.assertEqual(set(requests), {"/tenant/v1/traces", "/tenant/v1/logs"})
+        self.assertIn("flush=1", output)
+
     @staticmethod
     def metric_points(requests):
         for body in requests:
@@ -193,6 +222,15 @@ class TelemetryTest(unittest.TestCase):
         requests, output = self.exercise("metrics", configs={"OTEL_METRICS_EXPORTER": "none"})
         self.assertEqual(requests, {})
         self.assertIn("flush=1", output)
+
+    def test_periodic_metrics_keep_a_cumulative_series(self):
+        path = "/tenant/v1/metrics"
+        requests, output = self.exercise("periodic", configs={"OTEL_METRIC_EXPORT_INTERVAL": "50"})
+        self.assertIn("flush=1", output)
+        first, second = [p for _, _, _, _, p in self.metric_points(requests[path][:2])]
+        self.assertEqual((first.as_int, second.as_int), (5, 5))
+        self.assertEqual(first.start_time_unix_nano, second.start_time_unix_nano)
+        self.assertLess(first.time_unix_nano, second.time_unix_nano)
 
 
 if __name__ == "__main__":

@@ -315,10 +315,14 @@ begin
     while True do
     begin
       Tick := GetTickCount64;
-      if (FAccepted > FCompleted) and (FClosing or (FRequested > FCompleted) or (Tick >= NextTick)) then
+      if (FAccepted > FCompleted) and (FClosing or (FRequested > FCompleted)) then
         Break;
       if FClosing then Exit(False);
-      if Tick >= NextTick then NextTick := Tick + IntervalMs;
+      if Tick >= NextTick then
+      begin
+        if FAccepted > 0 then Break;
+        NextTick := Tick + IntervalMs;
+      end;
       TMonitor.Wait(Self, Cardinal(NextTick - Tick));
     end;
     NextTick := Tick + IntervalMs;
