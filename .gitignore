@@ -13,3 +13,6 @@ __recovery/
 *.rsm
 *.map
 *.tds
+
+# Python guardrail checks
+__pycache__/

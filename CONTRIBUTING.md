@@ -36,3 +36,28 @@ Use English for code comments, documentation, branch names, commit messages, and
 - `Keep the trace context when a request moves to a worker thread`
 - `Send completed spans in batches over HTTP`
 - `Give pending traces time to finish during shutdown`
+
+## Project skills and agents
+
+Open the OTel4D Git root as the workspace. In Codex, trust the project after reviewing its configuration. Invoke a skill by name, for example `$assess-reuse` before introducing a second trace context implementation. Contributors using other tools can follow the same instructions directly.
+
+| Task | Skill |
+| --- | --- |
+| Find existing behavior and decide what to reuse | [assess-reuse](.agents/skills/assess-reuse/SKILL.md) |
+| Check a payload or delivery change against the wire contract | [verify-otlp-http](.agents/skills/verify-otlp-http/SKILL.md) |
+| Reproduce a Delphi build for a stated platform | [verify-delphi-build](.agents/skills/verify-delphi-build/SKILL.md) |
+| Review a diff and record the evidence | [review-engineering-change](.agents/skills/review-engineering-change/SKILL.md) |
+
+For delegated work, ask Codex to use the [reuse_explorer](.codex/agents/reuse-explorer.toml), [validation_engineer](.codex/agents/validation-engineer.toml) or [engineering_reviewer](.codex/agents/engineering-reviewer.toml) role. Give it the revision, intended outcome and scope. Roles inherit the session's permissions. A maintainer reviews the evidence and owns approval.
+
+When editing a project skill, keep its name and description as single-line plain YAML text so contributors can run the metadata check with the standard library. Run the Codex skill author's validator for full front matter validation.
+
+Run the [quality gates](docs/engineering/QUALITY_GATES.md) locally before review. They also run in [GitHub Actions](.github/workflows/quality.yml). The quality guide explains how the owner can activate the branch ruleset once the status check and an eligible reviewer are available.
+
+The [Codex command rules](.codex/rules/git-safety.rules) prompt on selected elevated Git and GitHub CLI command prefixes. Preview a match without running the command:
+
+```sh
+codex execpolicy check --pretty --rules .codex/rules/git-safety.rules -- git reset --hard HEAD
+```
+
+Argument reordering, aliases, wrappers, commands run outside Codex and other clients require independent controls. GitHub branch protection governs operations accepted by the remote.

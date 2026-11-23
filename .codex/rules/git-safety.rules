@@ -1,0 +1,44 @@
+# Codex evaluates these prefixes when considering commands outside its sandbox.
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "prompt",
+    justification = "A hard reset can discard local changes.",
+    match = ["git reset --hard HEAD"],
+    not_match = ["git reset --soft HEAD"],
+)
+
+prefix_rule(
+    pattern = ["git", "clean", ["-fd", "-df", "-fdx", "-dfx"]],
+    decision = "prompt",
+    justification = "Forced cleanup can remove untracked project files.",
+    match = ["git clean -fdx"],
+    not_match = ["git clean -nd"],
+)
+
+prefix_rule(
+    pattern = ["git", "push", ["--force", "-f", "--mirror"]],
+    decision = "prompt",
+    justification = "Confirm the destination before rewriting or mirroring published history.",
+    match = ["git push --force origin develop"],
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", "merge"],
+    decision = "prompt",
+    justification = "Merging publishes the proposed change to the target branch.",
+    match = ["gh pr merge 7"],
+)
+
+prefix_rule(
+    pattern = ["gh", "release", "create"],
+    decision = "prompt",
+    justification = "Publishing a release needs an authorized version and target.",
+    match = ["gh release create v1.0.0"],
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", "delete"],
+    decision = "prompt",
+    justification = "Deleting the remote repository can remove shared project history.",
+    match = ["gh repo delete owner/project"],
+)
