@@ -88,6 +88,22 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="view\OTel.View.ProtobufResponse.pas"/>
+        <DCCReference Include="controller\OTel.Controller.MetricWorker.pas"/>
+        <DCCReference Include="controller\OTel.Controller.DeliveryWorker.pas"/>
+        <DCCReference Include="controller\OTel.Transport.ResponseLimit.pas"/>
+        <DCCReference Include="controller\OTel.Transport.ResponseStream.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.SignalSettings.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.Options.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.ConfigurationError.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.SpanEvent.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.MetricDefinition.pas"/>
+        <DCCReference Include="model\service\OTel.Model.Service.MetricSeries.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Span.pas"/>
+        <DCCReference Include="controller\OTel.Controller.MetricInstrument.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Counter.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Histogram.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Configuration.pas"/>
         <DCCReference Include="model\dto\OTel.Model.Dto.Metric.pas"/>
         <DCCReference Include="model\service\OTel.Model.Service.MetricStore.pas"/>
         <DCCReference Include="controller\OTel.Controller.Meter.pas"/>

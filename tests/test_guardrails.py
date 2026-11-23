@@ -54,6 +54,37 @@ end."""
         self.assertIn("FireDAC.Comp.Client", issues[0])
         self.assertIn("OTel.View.Protobuf", issues[1])
 
+    def test_class_policy_checks_private_classes_and_exceptions(self):
+        path = self.write("source/Queue.pas", """unit Queue;
+interface
+type TQueue<T: class> = class end;
+implementation
+type EQueueError = class(Exception); TWorker = class(TThread) end;
+end.
+""")
+        issues = list(gate.file_issues(self.root, path, set()))
+        self.assertEqual(len(issues), 2)
+        self.assertIn(":5: EQueueError", issues[0])
+        self.assertIn(":5: TWorker", issues[1])
+        self.assertIn("already defines TQueue", issues[1])
+
+    def test_class_policy_accepts_aliases_interfaces_and_a_forward_declaration(self):
+        source = """unit Queue;
+interface
+type
+  TQueue = class;
+  TQueueClass = class of TQueue;
+  IQueue = interface end;
+  TLegacy = OtherUnit.TQueue;
+  { TComment = class end; }
+  TQueue = class abstract end;
+const
+  Example = 'TLiteral = class end;';
+implementation
+end.
+"""
+        self.assertEqual(list(gate.unit_class_issues(Path("source/Queue.pas"), source)), [])
+
     def test_comments_literals_and_transport_units_do_not_trigger_model_check(self):
         text = """unit OTel4D.Model.Trace;
 interface

@@ -26,38 +26,10 @@ implementation
 
 uses
   Winapi.Windows, Winapi.WinHTTP, System.StrUtils, System.NetEncoding,
-  OTel.Model.Dto.Configuration, OTel.View.Protobuf;
+  OTel.Model.Dto.Configuration, OTel.View.Protobuf, OTel.Transport.ResponseStream;
 
 const
   ProtobufType = 'application/x-protobuf';
-  MaxResponseBytes = 4 * 1024 * 1024;
-
-type
-  EResponseLimit = class(Exception);
-  TResponseStream = class(TMemoryStream)
-  private
-    procedure CheckSize(Count: Integer);
-  public
-    function Write(const Buffer; Count: Longint): Longint; overload; override;
-    function Write(const Buffer: TBytes; Offset, Count: Longint): Longint; overload; override;
-  end;
-
-procedure TResponseStream.CheckSize(Count: Integer);
-begin
-  if Count > MaxResponseBytes - Position then raise EResponseLimit.Create('OTLP response exceeded the limit.');
-end;
-
-function TResponseStream.Write(const Buffer; Count: Longint): Longint;
-begin
-  CheckSize(Count);
-  Result := inherited Write(Buffer, Count);
-end;
-
-function TResponseStream.Write(const Buffer: TBytes; Offset, Count: Longint): Longint;
-begin
-  CheckSize(Count);
-  Result := inherited Write(Buffer, Offset, Count);
-end;
 
 class function TOTelHttpTransport.MakeHeaders(const Settings: string): TNetHeaders;
 var

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Give each Delphi class its own unit and enforce the rule in the repository checks. Rebuild applications and packages against the new BPLs and DCPs.
+
 - Send structured logs with trace correlation and export cumulative counters, up-down counters and histograms through independent OTLP/HTTP workers.
 - Add optional FireDAC query and stored procedure components that produce database client spans and a duration histogram.
 

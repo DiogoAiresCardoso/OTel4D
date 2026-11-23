@@ -3,28 +3,15 @@ unit OTel.Controller.Meter;
 interface
 
 uses
-  OTel.Model.Dto.Metric, OTel.Model.Dto.Telemetry, OTel.Model.Service.MetricStore;
+  OTel.Model.Dto.Metric, OTel.Model.Service.MetricStore,
+  OTel.Controller.MetricInstrument, OTel.Controller.Counter, OTel.Controller.Histogram;
 
 type
-  TOTelMetricInstrument = class
-  strict private
-    FStore: IOTelMetricStore;
-    FDefinition: TOTelMetricDefinition;
-  protected
-    procedure Measure(Increment: Int64; Measurement: Double; const Attributes: TOTelAttributes);
-  public
-    constructor Create(const Store: IOTelMetricStore; Definition: TOTelMetricDefinition);
-  end;
+  TOTelMetricInstrument = OTel.Controller.MetricInstrument.TOTelMetricInstrument;
 
-  TOTelCounter = class(TOTelMetricInstrument)
-  public
-    procedure Add(Increment: Int64; const Attributes: TOTelAttributes = nil);
-  end;
+  TOTelCounter = OTel.Controller.Counter.TOTelCounter;
 
-  TOTelHistogram = class(TOTelMetricInstrument)
-  public
-    procedure RecordValue(Value: Double; const Attributes: TOTelAttributes = nil);
-  end;
+  TOTelHistogram = OTel.Controller.Histogram.TOTelHistogram;
 
   TOTelMeter = class
   strict private
@@ -43,28 +30,6 @@ type
   end;
 
 implementation
-
-constructor TOTelMetricInstrument.Create(const Store: IOTelMetricStore; Definition: TOTelMetricDefinition);
-begin
-  inherited Create;
-  FStore := Store;
-  FDefinition := Definition;
-end;
-
-procedure TOTelMetricInstrument.Measure(Increment: Int64; Measurement: Double; const Attributes: TOTelAttributes);
-begin
-  if Assigned(FDefinition) then FStore.Measure(FDefinition, Increment, Measurement, Attributes);
-end;
-
-procedure TOTelCounter.Add(Increment: Int64; const Attributes: TOTelAttributes);
-begin
-  Measure(Increment, 0, Attributes);
-end;
-
-procedure TOTelHistogram.RecordValue(Value: Double; const Attributes: TOTelAttributes);
-begin
-  Measure(0, Value, Attributes);
-end;
 
 constructor TOTelMeter.Create(const Store: IOTelMetricStore; const Scope, Version: string);
 begin

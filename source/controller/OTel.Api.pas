@@ -5,7 +5,8 @@ interface
 uses
   OTel.Model.Dto.Configuration, OTel.Model.Dto.Span, OTel.Model.Service.TraceContext,
   OTel.Controller.Trace, OTel.Controller.TraceClient, OTel.Model.Dto.Telemetry,
-  OTel.Model.Dto.Log, OTel.Controller.Logger, OTel.Controller.Meter;
+  OTel.Model.Dto.Log, OTel.Controller.Logger, OTel.Controller.Meter,
+  OTel.Controller.Configuration;
 
 type
   TOTelOptions = OTel.Model.Dto.Configuration.TOTelOptions;
@@ -31,13 +32,7 @@ type
     class function Open(const Overrides: TOTelOptions = nil): TOTelTraceClient; static;
   end;
 
-  TOTelConfigurationController = class
-  private
-    class function Resolve(const Overrides: TOTelOptions; ForClient: Boolean): TOTelConfiguration; static;
-  public
-    // Borrows Overrides for this call. The caller owns the returned snapshot.
-    class function LoadConfiguration(const Overrides: TOTelOptions = nil): TOTelConfiguration; static;
-  end;
+  TOTelConfigurationController = OTel.Controller.Configuration.TOTelConfigurationController;
 
 const
   llTrace = OTel.Model.Dto.Log.llTrace;
@@ -57,41 +52,11 @@ const
 
 implementation
 
-uses
-  OTel.Model.Dao.Environment,
-  OTel.Model.Service.Configuration,
-  OTel.View.TraceEndpoint;
-
-class function TOTelConfigurationController.LoadConfiguration(const Overrides: TOTelOptions): TOTelConfiguration;
-begin
-  Result := Resolve(Overrides, False);
-end;
-
-class function TOTelConfigurationController.Resolve(const Overrides: TOTelOptions; ForClient: Boolean): TOTelConfiguration;
-var
-  Options: TOTelOptions;
-  Endpoint: string;
-begin
-  Options := TOTelOptions.Create;
-  try
-    TEnvironmentDao.ReadInto(Options);
-    TConfigurationService.ApplyOverridesAndDefaults(Options, Overrides, ForClient);
-    if not (ForClient and Options.SdkDisabled) then Endpoint := TTraceEndpointView.Render(Options);
-    Result := TOTelConfiguration.Create(Options.ServiceName, Endpoint,
-      Options.TraceHeaders, Options.SdkDisabled, Options.TraceTimeoutMs);
-    Result.Additional.Logs.Assign(Options.Logs);
-    Result.Additional.Metrics.Assign(Options.Metrics);
-    Result.Additional.MetricsIntervalMs := Options.MetricsIntervalMs;
-  finally
-    Options.Free;
-  end;
-end;
-
 class function TOTel.Open(const Overrides: TOTelOptions): TOTelTraceClient;
 var
   Config: TOTelConfiguration;
 begin
-  Config := TOTelConfigurationController.Resolve(Overrides, True);
+  Config := TOTelConfigurationController.LoadForClient(Overrides);
   try
     Result := TOTelTraceClient.Create(Config);
   finally
