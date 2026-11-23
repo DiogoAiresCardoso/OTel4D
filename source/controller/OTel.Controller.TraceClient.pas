@@ -4,14 +4,17 @@ interface
 
 uses
   OTel.Model.Dto.Configuration, OTel.Model.Dto.Span, OTel.Model.Dto.Log,
-  OTel.Controller.Trace, OTel.Controller.Logger, OTel.Controller.BatchedSignal;
+  OTel.Controller.Trace, OTel.Controller.Logger, OTel.Controller.BatchedSignal,
+  OTel.Controller.Meter, OTel.Controller.MetricReader;
 
 type
   TOTelTraceClient = class
   strict private
     FTrace: TOTelBatchedSignal<TOTelSpanData>;
     FLogs: TOTelBatchedSignal<TOTelLogData>;
-    FLogSettings: TOTelSignalSettings;
+    FMetrics: TOTelMetricReader;
+    FLogSettings, FMetricSettings: TOTelSignalSettings;
+    FMetricInterval: Integer;
     FService: string;
     FDisabled, FClosing: Boolean;
     class function SignalActive(const Settings: TOTelSignalSettings): Boolean; static;
@@ -22,6 +25,7 @@ type
     destructor Destroy; override;
     function GetTracer(const ScopeName: string; const ScopeVersion: string = ''): TOTelTracer;
     function GetLogger(const ScopeName: string; const ScopeVersion: string = ''): TOTelLogger;
+    function GetMeter(const ScopeName: string; const ScopeVersion: string = ''): TOTelMeter;
     function ForceFlush(TimeoutMs: Cardinal = 10000): Boolean;
     function Shutdown(TimeoutMs: Cardinal = 10000): Boolean;
     function DroppedSpans: Int64;
@@ -30,13 +34,16 @@ type
     function DroppedLogs: Int64;
     function RejectedLogs: Int64;
     function LogDeliveryWarnings: Int64;
+    function RejectedMetricPoints: Int64;
+    function MetricDeliveryWarnings: Int64;
+    function InvalidMetricMeasurements: Int64;
   end;
 
 implementation
 
 uses
   System.SysUtils, System.Generics.Collections, Winapi.Windows, OTel.Model.Dto.Telemetry,
-  OTel.View.TraceEndpoint, OTel.View.TraceProtobuf, OTel.View.LogProtobuf;
+  OTel.Model.Service.MetricStore, OTel.View.TraceEndpoint, OTel.View.TraceProtobuf, OTel.View.LogProtobuf;
 
 constructor TOTelTraceClient.Create(const Config: TOTelConfiguration);
 begin
@@ -46,6 +53,10 @@ begin
   FDisabled := Config.SdkDisabled;
   FLogSettings := TOTelSignalSettings.Create;
   FLogSettings.Assign(Config.Additional.Logs);
+  FMetricSettings := TOTelSignalSettings.Create;
+  FMetricSettings.Assign(Config.Additional.Metrics);
+  FMetricInterval := Config.Additional.MetricsIntervalMs;
+  if FMetricInterval <= 0 then FMetricInterval := 60000;
   FTrace := TOTelBatchedSignal<TOTelSpanData>.Create(FService, Config.TracesEndpoint,
     Config.TraceHeaders, Config.TraceTimeoutMs, FDisabled,
     function(const Service: string; Batch: TObjectList<TOTelSpanData>): TBytes
@@ -57,8 +68,10 @@ end;
 destructor TOTelTraceClient.Destroy;
 begin
   Close;
+  FMetrics.Free;
   FLogs.Free;
   FTrace.Free;
+  FMetricSettings.Free;
   FLogSettings.Free;
   inherited;
 end;
@@ -88,6 +101,7 @@ begin
     FClosing := True;
     if Assigned(FTrace) then FTrace.Close;
     if Assigned(FLogs) then FLogs.Close;
+    if Assigned(FMetrics) then FMetrics.Close;
   finally
     TMonitor.Exit(Self);
   end;
@@ -127,10 +141,36 @@ begin
   Result := TOTelLogger.Create(Sink, ScopeName, ScopeVersion);
 end;
 
+function TOTelTraceClient.GetMeter(const ScopeName, ScopeVersion: string): TOTelMeter;
+var
+  Handle: IOTelMetricStore;
+  Timeout: Integer;
+begin
+  TMonitor.Enter(Self);
+  try
+    if not FDisabled and not FClosing then
+      if SignalActive(FMetricSettings) then
+      begin
+        if not Assigned(FMetrics) then
+        begin
+          Timeout := FMetricSettings.TimeoutMs;
+          if Timeout < 0 then Timeout := 10000;
+          FMetrics := TOTelMetricReader.Create(FService, SignalEndpoint(FMetricSettings, 'v1/metrics'),
+            FMetricSettings.Headers, Timeout, FMetricInterval);
+        end;
+        Handle := FMetrics.Handle;
+      end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+  Result := TOTelMeter.Create(Handle, ScopeName, ScopeVersion);
+end;
+
 function TOTelTraceClient.ForceFlush(TimeoutMs: Cardinal): Boolean;
 var
   Deadline: UInt64;
-  TraceTarget, LogTarget: Int64;
+  TraceTarget, LogTarget, MetricTarget: Int64;
+  Metrics: TOTelMetricReader;
   Logs: TOTelBatchedSignal<TOTelLogData>;
 begin
   Deadline := GetTickCount64 + TimeoutMs;
@@ -140,12 +180,17 @@ begin
     Logs := FLogs;
     LogTarget := 0;
     if Assigned(Logs) then LogTarget := Logs.Queue.RequestFlush;
+    Metrics := FMetrics;
+    MetricTarget := 0;
+    if Assigned(Metrics) then MetricTarget := Metrics.Store.RequestFlush;
   finally
     TMonitor.Exit(Self);
   end;
   Result := FTrace.Queue.WaitFor(TraceTarget, Deadline);
   if Assigned(Logs) then
     if not Logs.Queue.WaitFor(LogTarget, Deadline) then Result := False;
+  if Assigned(Metrics) then
+    if not Metrics.Store.WaitFor(MetricTarget, Deadline) then Result := False;
 end;
 
 function TOTelTraceClient.Shutdown(TimeoutMs: Cardinal): Boolean;
@@ -157,6 +202,8 @@ begin
   Result := FTrace.Drain(Deadline);
   if Assigned(FLogs) then
     if not FLogs.Drain(Deadline) then Result := False;
+  if Assigned(FMetrics) then
+    if not FMetrics.Drain(Deadline) then Result := False;
 end;
 
 function TOTelTraceClient.DroppedSpans: Int64;
@@ -187,6 +234,21 @@ end;
 function TOTelTraceClient.LogDeliveryWarnings: Int64;
 begin
   if Assigned(FLogs) then Result := FLogs.Queue.Warnings else Result := 0;
+end;
+
+function TOTelTraceClient.RejectedMetricPoints: Int64;
+begin
+  if Assigned(FMetrics) then Result := FMetrics.Store.Rejected else Result := 0;
+end;
+
+function TOTelTraceClient.MetricDeliveryWarnings: Int64;
+begin
+  if Assigned(FMetrics) then Result := FMetrics.Store.Warnings else Result := 0;
+end;
+
+function TOTelTraceClient.InvalidMetricMeasurements: Int64;
+begin
+  if Assigned(FMetrics) then Result := FMetrics.Store.Invalid else Result := 0;
 end;
 
 end.

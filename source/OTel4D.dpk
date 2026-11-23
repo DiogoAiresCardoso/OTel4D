@@ -33,6 +33,11 @@ requires
   rtl;
 
 contains
+  OTel.Model.Dto.Metric in 'model\dto\OTel.Model.Dto.Metric.pas',
+  OTel.Model.Service.MetricStore in 'model\service\OTel.Model.Service.MetricStore.pas',
+  OTel.Controller.Meter in 'controller\OTel.Controller.Meter.pas',
+  OTel.Controller.MetricReader in 'controller\OTel.Controller.MetricReader.pas',
+  OTel.View.MetricProtobuf in 'view\OTel.View.MetricProtobuf.pas',
   OTel.Model.Dto.Telemetry in 'model\dto\OTel.Model.Dto.Telemetry.pas',
   OTel.Model.Dto.Log in 'model\dto\OTel.Model.Dto.Log.pas',
   OTel.Controller.Logger in 'controller\OTel.Controller.Logger.pas',

@@ -3,12 +3,13 @@ program TelemetrySmoke;
 {$APPTYPE CONSOLE}
 
 uses
-  System.SysUtils, OTel.Api;
+  System.SysUtils, System.Classes, System.Math, OTel.Api;
 
 type
   TTelemetrySmoke = class
   strict private
     class procedure EmitLogs(Client: TOTelTraceClient); static;
+    class procedure EmitMetrics(Client: TOTelTraceClient); static;
   public
     class procedure Run; static;
   end;
@@ -68,6 +69,85 @@ begin
   end;
 end;
 
+class procedure TTelemetrySmoke.EmitMetrics(Client: TOTelTraceClient);
+var
+  Meter: TOTelMeter;
+  Counter, Duplicate, Active, Overflow: TOTelCounter;
+  Histogram: TOTelHistogram;
+  Tags, ReverseTags: TOTelAttributes;
+  Producer: TThread;
+  I: Integer;
+begin
+  Meter := Client.GetMeter('orders.metrics', '2');
+  Counter := nil;
+  Duplicate := nil;
+  Active := nil;
+  Overflow := nil;
+  Histogram := nil;
+  Tags := nil;
+  ReverseTags := nil;
+  try
+    Counter := Meter.CreateCounter('orders.completed', '{order}');
+    Duplicate := Meter.CreateCounter('ORDERS.COMPLETED', '{order}');
+    try
+      Meter.CreateUpDownCounter('orders.completed', '{order}').Free;
+      if GetEnvironmentVariable('OTEL_METRICS_EXPORTER') <> 'none' then
+        raise Exception.Create('Incompatible instrument creation succeeded.');
+    except
+      on EOTelConfiguration do ;
+    end;
+    Active := Meter.CreateUpDownCounter('orders.active', '{order}');
+    Overflow := Meter.CreateCounter('orders.series', '{order}');
+    Histogram := Meter.CreateHistogram('orders.duration', 's', 'Order duration', [0.1, 1.0]);
+    Tags := TOTelAttributes.Create;
+    ReverseTags := TOTelAttributes.Create;
+    Tags.Put('region', 'west');
+    Tags.Put('size', Int64(2));
+    ReverseTags.Put('size', Int64(2));
+    ReverseTags.Put('region', 'west');
+    Counter.Add(3000000000, Tags);
+    Duplicate.Add(3, ReverseTags);
+    Counter.Add(-1, Tags);
+    Active.Add(-5);
+    Active.Add(2);
+    Histogram.RecordValue(0.1);
+    Histogram.RecordValue(0.5);
+    Histogram.RecordValue(1.0);
+    Histogram.RecordValue(2.0);
+    Histogram.RecordValue(NaN);
+    for I := 1 to 130 do
+    begin
+      Tags.Put('series', Int64(I));
+      Overflow.Add(1, Tags);
+    end;
+    Producer := TThread.CreateAnonymousThread(
+      procedure
+      var
+        Count: Integer;
+      begin
+        for Count := 1 to 10000 do Active.Add(1);
+      end);
+    Producer.FreeOnTerminate := False;
+    try
+      Producer.Start;
+      Client.ForceFlush(15000);
+      Producer.WaitFor;
+    finally
+      Producer.Free;
+    end;
+    Counter.Add(10, ReverseTags);
+  finally
+    ReverseTags.Free;
+    Tags.Free;
+    Histogram.Free;
+    Overflow.Free;
+    Active.Free;
+    Duplicate.Free;
+    Counter.Free;
+    Meter.Free;
+  end;
+end;
+
 class procedure TTelemetrySmoke.Run;
 var
   Client: TOTelTraceClient;
@@ -75,12 +155,14 @@ var
 begin
   Client := TOTel.Open;
   try
-    EmitLogs(Client);
+    if ParamStr(1) = 'metrics' then EmitMetrics(Client) else EmitLogs(Client);
     Success := Client.ForceFlush(15000);
     if Client.Shutdown(15000) <> Success then
       raise Exception.Create('Shutdown changed delivery health.');
     Writeln('flush=', Ord(Success), ' logs_dropped=', Client.DroppedLogs,
-      ' logs_rejected=', Client.RejectedLogs, ' logs_warnings=', Client.LogDeliveryWarnings);
+      ' logs_rejected=', Client.RejectedLogs, ' logs_warnings=', Client.LogDeliveryWarnings,
+      ' metrics_rejected=', Client.RejectedMetricPoints, ' metrics_warnings=', Client.MetricDeliveryWarnings,
+      ' metrics_invalid=', Client.InvalidMetricMeasurements);
   finally
     Client.Free;
   end;

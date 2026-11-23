@@ -88,6 +88,11 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.Metric.pas"/>
+        <DCCReference Include="model\service\OTel.Model.Service.MetricStore.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Meter.pas"/>
+        <DCCReference Include="controller\OTel.Controller.MetricReader.pas"/>
+        <DCCReference Include="view\OTel.View.MetricProtobuf.pas"/>
         <DCCReference Include="model\dto\OTel.Model.Dto.Telemetry.pas"/>
         <DCCReference Include="model\dto\OTel.Model.Dto.Log.pas"/>
         <DCCReference Include="controller\OTel.Controller.Logger.pas"/>
