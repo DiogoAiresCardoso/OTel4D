@@ -11,7 +11,8 @@ type
     class function DefaultServiceName: string; static;
   public
     // Updates the supplied options in place. Overrides may be nil and is read-only.
-    class procedure ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions); static;
+    class procedure ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions;
+      SkipDisabledExport: Boolean = False); static;
   end;
 
 implementation
@@ -32,12 +33,17 @@ begin
     Result := Result + ':' + ExecutableName;
 end;
 
-class procedure TConfigurationService.ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions);
+class procedure TConfigurationService.ApplyOverridesAndDefaults(const Options, Overrides: TOTelOptions;
+  SkipDisabledExport: Boolean);
 begin
   if Options = nil then
     raise EArgumentNilException.Create('Options must be assigned.');
   if Assigned(Overrides) then
   begin
+    if Overrides.TraceHeaders <> '' then Options.TraceHeaders := Overrides.TraceHeaders;
+    if Overrides.TraceProtocol <> '' then Options.TraceProtocol := Overrides.TraceProtocol;
+    if Overrides.TraceTimeoutMs >= 0 then Options.TraceTimeoutMs := Overrides.TraceTimeoutMs;
+    if Overrides.HasSdkDisabled then Options.SdkDisabled := Overrides.SdkDisabled;
     if Overrides.ServiceName <> '' then
       Options.ServiceName := Overrides.ServiceName;
     if (Overrides.TracesEndpoint <> '') or (Overrides.Endpoint <> '') then
@@ -48,6 +54,10 @@ begin
   end;
   if Options.ServiceName = '' then
     Options.ServiceName := DefaultServiceName;
+  if SkipDisabledExport and Options.SdkDisabled then Exit;
+  if (Options.TraceProtocol <> '') and not SameText(Options.TraceProtocol, 'http/protobuf') then
+    raise EOTelConfiguration.Create('The supported trace protocol is http/protobuf.');
+  if Options.TraceTimeoutMs < 0 then Options.TraceTimeoutMs := 10000;
   if (Options.TracesEndpoint = '') and (Options.Endpoint = '') then
     Options.Endpoint := DefaultEndpoint;
 end;
