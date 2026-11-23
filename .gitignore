@@ -13,6 +13,8 @@ __recovery/
 *.rsm
 *.map
 *.tds
+/source/Win32/
+/source/OTel4D.res
 
 # Python guardrail checks
 __pycache__/
