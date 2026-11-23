@@ -12,6 +12,9 @@ from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import (
     ExportLogsServiceRequest, ExportLogsServiceResponse,
 )
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.collector.metrics.v1.metrics_service_pb2 import (
+    ExportMetricsServiceRequest, ExportMetricsServiceResponse,
+)
 
 MEDIA = "application/x-protobuf"
 
@@ -23,8 +26,8 @@ class Receiver(BaseHTTPRequestHandler):
             requests = self.server.requests.setdefault(self.path, [])
             requests.append(body)
             index = len(requests) - 1
-        status, response, headers = self.server.responses.get(self.path, [(200, b"", {})])[min(
-            index, len(self.server.responses.get(self.path, [(200, b"", {})])) - 1)]
+        responses = self.server.responses.get(self.path, [(200, b"", {})])
+        status, response, headers = responses[min(index, len(responses) - 1)]
         if self.server.slow_path == self.path:
             self.server.release.wait(5)
         self.send_response(status)
@@ -132,6 +135,64 @@ class TelemetryTest(unittest.TestCase):
         self.assertEqual(set(requests), {"/tenant/v1/traces"})
         requests, _ = self.exercise(configs={"OTEL_SDK_DISABLED": "true"})
         self.assertEqual(requests, {})
+
+    @staticmethod
+    def metric_points(requests):
+        for body in requests:
+            for resource in ExportMetricsServiceRequest.FromString(body).resource_metrics:
+                for scope in resource.scope_metrics:
+                    for metric in scope.metrics:
+                        aggregation = metric.histogram if metric.HasField("histogram") else metric.sum
+                        for point in aggregation.data_points:
+                            yield resource, scope, metric, aggregation, point
+
+    def test_cumulative_aggregation_and_overflow(self):
+        path = "/custom/metrics?q=1"
+        requests, output = self.exercise("metrics", configs={"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "{base}" + path})
+        self.assertIn("flush=1", output)
+        self.assertIn("metrics_invalid=2", output)
+        metrics = {}
+        for resource, scope, metric, aggregation, point in self.metric_points(requests[path]):
+            self.assertEqual(resource.resource.attributes[0].value.string_value, "test.multisignal")
+            self.assertEqual((scope.scope.name, scope.scope.version), ("orders.metrics", "2"))
+            self.assertEqual(aggregation.aggregation_temporality, 2)
+            self.assertGreaterEqual(point.time_unix_nano, point.start_time_unix_nano)
+            metrics.setdefault(metric.name, []).append((metric, aggregation, point))
+        counts = metrics["orders.completed"]
+        self.assertEqual([p.as_int for _, _, p in counts], [3000000003, 3000000013])
+        self.assertEqual(counts[0][2].start_time_unix_nano, counts[1][2].start_time_unix_nano)
+        self.assertGreater(counts[1][2].time_unix_nano, counts[0][2].time_unix_nano)
+        self.assertTrue(counts[0][1].is_monotonic)
+        _, active, latest = metrics["orders.active"][-1]
+        self.assertFalse(active.is_monotonic)
+        self.assertEqual(latest.as_int, 9997)
+        metric, _, point = metrics["orders.duration"][-1]
+        self.assertEqual(metric.unit, "s")
+        self.assertEqual(list(point.explicit_bounds), [0.1, 1.0])
+        self.assertEqual(list(point.bucket_counts), [1, 2, 1])
+        self.assertEqual((point.count, point.sum), (4, 3.6))
+        series = [p for _, _, p in metrics["orders.series"] if p.time_unix_nano == latest.time_unix_nano]
+        self.assertEqual(len(series), 129)
+        self.assertEqual(sum(p.as_int for p in series), 130)
+        overflow, = [p for p in series if any(a.key == "otel.metric.overflow" for a in p.attributes)]
+        self.assertEqual((len(overflow.attributes), overflow.attributes[0].value.bool_value, overflow.as_int), (1, True, 2))
+
+    def test_metrics_partial_success_keeps_cumulative_data(self):
+        path = "/tenant/v1/metrics"
+        partial = ExportMetricsServiceResponse()
+        partial.partial_success.rejected_data_points = 1
+        partial.partial_success.error_message = "fixture"
+        requests, output = self.exercise("metrics", responses={path: [(200, partial.SerializeToString(), {}), (200, b"", {})]})
+        self.assertIn("flush=0", output)
+        self.assertIn("metrics_rejected=1 metrics_warnings=1", output)
+        self.assertEqual(len(requests[path]), 4)
+        points = [p.as_int for _, _, m, _, p in self.metric_points(requests[path]) if m.name == "orders.completed"]
+        self.assertEqual(points, [3000000003, 3000000013])
+
+    def test_metric_disable_is_independent(self):
+        requests, output = self.exercise("metrics", configs={"OTEL_METRICS_EXPORTER": "none"})
+        self.assertEqual(requests, {})
+        self.assertIn("flush=1", output)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ interface
 uses
   OTel.Model.Dto.Configuration, OTel.Model.Dto.Span, OTel.Model.Service.TraceContext,
   OTel.Controller.Trace, OTel.Controller.TraceClient, OTel.Model.Dto.Telemetry,
-  OTel.Model.Dto.Log, OTel.Controller.Logger;
+  OTel.Model.Dto.Log, OTel.Controller.Logger, OTel.Controller.Meter;
 
 type
   TOTelOptions = OTel.Model.Dto.Configuration.TOTelOptions;
@@ -21,6 +21,10 @@ type
   TOTelLogger = OTel.Controller.Logger.TOTelLogger;
   TOTelAttributes = OTel.Model.Dto.Telemetry.TOTelAttributes;
   TOTelLogLevel = OTel.Model.Dto.Log.TOTelLogLevel;
+
+  TOTelMeter = OTel.Controller.Meter.TOTelMeter;
+  TOTelCounter = OTel.Controller.Meter.TOTelCounter;
+  TOTelHistogram = OTel.Controller.Meter.TOTelHistogram;
 
   TOTel = class
   public
