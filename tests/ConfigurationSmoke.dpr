@@ -17,6 +17,7 @@ type
     class procedure SetVariable(const Name, Value: string); static;
     class procedure CheckValues(const Options: TOTelOptions; const Service, Endpoint: string); static;
     class procedure CheckOverrides; static;
+    class procedure CheckDeliverySettings; static;
     class procedure CheckInvalidEndpoint(const Endpoint: string); static;
     class procedure CheckRequiredOptions; static;
   public
@@ -128,6 +129,51 @@ begin
   end;
 end;
 
+class procedure TConfigurationSmoke.CheckDeliverySettings;
+var
+  Options: TOTelOptions;
+  Snapshot: TOTelConfiguration;
+begin
+  SetVariable('OTEL_EXPORTER_OTLP_TIMEOUT', '1200');
+  SetVariable('OTEL_EXPORTER_OTLP_TRACES_TIMEOUT', 'invalid');
+  SetVariable('OTEL_EXPORTER_OTLP_HEADERS', 'x-origin=general');
+  SetVariable('OTEL_EXPORTER_OTLP_TRACES_HEADERS', 'x-origin=traces');
+  SetVariable('OTEL_EXPORTER_OTLP_PROTOCOL', 'grpc');
+  SetVariable('OTEL_EXPORTER_OTLP_TRACES_PROTOCOL', 'http/protobuf');
+  SetVariable('OTEL_SDK_DISABLED', 'TRUE');
+  Snapshot := TOTelConfigurationController.LoadConfiguration;
+  try
+    Check(Snapshot.TraceTimeoutMs = 1200, 'Invalid signal timeout hid the fallback.');
+    Check(Snapshot.TraceHeaders = 'x-origin=traces', 'Incorrect header precedence.');
+    Check(Snapshot.SdkDisabled, 'Disabled environment setting was ignored.');
+  finally
+    Snapshot.Free;
+  end;
+  Options := TOTelOptions.Create;
+  try
+    Options.SdkDisabled := False;
+    Options.TraceHeaders := 'x-origin=host';
+    Options.TraceTimeoutMs := 0;
+    Snapshot := TOTelConfigurationController.LoadConfiguration(Options);
+    try
+      Check(not Snapshot.SdkDisabled, 'Explicit enable did not take precedence.');
+      Check(Snapshot.TraceTimeoutMs = 0, 'Explicit zero timeout lost.');
+      Check(Snapshot.TraceHeaders = 'x-origin=host', 'Explicit header lost.');
+    finally
+      Snapshot.Free;
+    end;
+    Options.TraceProtocol := 'grpc';
+    try
+      TOTel.Open(Options).Free;
+      raise Exception.Create('An enabled client accepted gRPC.');
+    except
+      on EOTelConfiguration do ;
+    end;
+  finally
+    Options.Free;
+  end;
+end;
+
 class procedure TConfigurationSmoke.Run;
 var
   Initial: TOTelConfiguration;
@@ -135,6 +181,8 @@ begin
   SetVariable('OTEL_SERVICE_NAME', '');
   SetVariable('OTEL_EXPORTER_OTLP_ENDPOINT', '');
   SetVariable('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', '');
+  SetVariable('OTEL_EXPORTER_OTLP_PROTOCOL', '');
+  SetVariable('OTEL_EXPORTER_OTLP_TRACES_PROTOCOL', '');
   Initial := TOTelConfigurationController.LoadConfiguration;
   try
     Check(Initial.ServiceName = 'unknown_service:' + ExtractFileName(ParamStr(0)), 'Default service name');
@@ -168,6 +216,7 @@ begin
   CheckInvalidEndpoint('http://receiver.example/path%2');
   CheckInvalidEndpoint('http://receiver.example/?private-value=%ZZ');
   CheckInvalidEndpoint('http://receiver.example/' + #13 + #10);
+  CheckDeliverySettings;
 end;
 
 begin

@@ -88,6 +88,13 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="rtl.dcp"/>
+        <DCCReference Include="controller\OTel.Controller.SpanQueue.pas"/>
+        <DCCReference Include="controller\OTel.Controller.Trace.pas"/>
+        <DCCReference Include="controller\OTel.Controller.TraceClient.pas"/>
+        <DCCReference Include="controller\OTel.Transport.Http.pas"/>
+        <DCCReference Include="model\dto\OTel.Model.Dto.Span.pas"/>
+        <DCCReference Include="model\service\OTel.Model.Service.TraceContext.pas"/>
+        <DCCReference Include="view\OTel.View.TraceProtobuf.pas"/>
         <DCCReference Include="controller\OTel.Api.pas"/>
         <DCCReference Include="model\dto\OTel.Model.Dto.Configuration.pas"/>
         <DCCReference Include="model\dao\OTel.Model.Dao.Environment.pas"/>
