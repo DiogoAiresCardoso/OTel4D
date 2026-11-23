@@ -36,8 +36,8 @@ Three cumulative client counters are accessible through `OTel.Api`. Read them be
 
 ## Flush and shutdown
 
-1. Finish spans on producer threads. An open span has no queued representation.
-2. Use `ForceFlush(TimeoutMs)` when a caller needs to wait for the spans already accepted at call time. Producers can continue submitting. Prefer this at diagnostic or lifecycle boundaries because the caller waits.
+1. Finish spans on producer threads. An open span has no queued representation. Emitted logs and recorded measurements become eligible at capture.
+2. Use `ForceFlush(TimeoutMs)` when a caller needs to wait for telemetry already accepted at call time. The client wakes each active signal and uses a single deadline for the waits. Producers can continue submitting. Prefer this at diagnostic or lifecycle boundaries because the caller waits.
 3. At process shutdown, stop new work, join producer threads, finish their spans and call `Shutdown(TimeoutMs)`. It closes intake, wakes the worker, and waits for pending batches. A tracer retained afterward yields nonrecording spans.
 4. If shutdown times out, the worker can continue while the client is alive. A later call can wait again. Free the client once its lifetime is over. Destruction requests cancellation and joins the worker, so an active OS network call can extend the time spent in `Free`. Freeing after a timeout can abandon pending delivery.
 
@@ -68,16 +68,21 @@ python -m unittest discover -s tests -p "test_*.py"
 tests\run-configuration.cmd
 python -m pip install opentelemetry-proto==1.45.2
 tests\run-traces.cmd
+tests\run-telemetry.cmd
+tests\run-firedac.cmd
 msbuild source\OTel4D.dproj /t:Build /p:Config=Release /p:Platform=Win32
 ```
 
 Install the Python package in the development environment or virtual environment used for testing. If the desired interpreter is outside PATH, set `OTEL4D_TEST_PYTHON` to its executable path before running the trace script.
+
+For the FireDAC suite, opt in to the embedded database and actual Collector checks by setting `OTEL4D_TEST_FIREBIRD` to a Win32 Firebird client DLL with embedded support and `OTEL4D_TEST_COLLECTOR` to the official Collector executable. The suite creates a disposable Firebird database and starts the Collector on loopback. The SQLite and failure tests run without those settings. [FireDAC verifier](../tests/verify_firedac.py)
 
 | Check | Evidence it provides |
 | --- | --- |
 | Repository checks | Layout and coding guardrails, local Markdown file references and policy regression tests. |
 | Configuration consumer | Builds the Debug BPL and exercises the public configuration API, precedence, snapshot ownership, URL handling and invalid inputs. [Consumer](../tests/ConfigurationSmoke.dpr) |
 | Trace consumer and independent decoder | A Win32 application emits spans to loopback. Official bindings decode service, scope, IDs, flags, times, scalar types, events and status. The receiver tests exact endpoints, retry requests, partial success, warning-only success, redirects, permanent errors and malformed acknowledgements. A delayed response exercises zero-timeout flush and shutdown. A 3,000-span run checks that unique deliveries plus local drops equal the number submitted. [Delphi consumer](../tests/TraceSmoke.dpr) · [Python verifier](../tests/verify_traces.py) |
-| Official Collector | Follow the first-trace walkthrough and inspect the two decoded spans and their relationship. This exercises the actual receiver separately from the programmable test server. [Walkthrough](integration.md#run-the-local-example) |
+| Logs and metrics | A package-linked Delphi consumer exercises correlation, typed values, queue pressure, retry, partial success, cumulative snapshots, periodic export and metric series overflow. [Verifier](../tests/verify_telemetry.py) |
+| FireDAC and official Collector | Two concurrent SQLite connections preserve query results and application errors. The Firebird fixture verifies a stored procedure. The official Collector receives a business log, database child spans and a duration histogram. The runtime fixture streams the migrated DFM. [Verifier](../tests/verify_firedac.py) |
 
 **Additional verification during implementation.** On Tokyo Win32, an independent run exercised a source-linked application and a runtime-package consumer against the official Collector 0.165.0. In a separate slow-receiver run with eight producing threads and 4,096 finished spans, 2,176 unique spans reached the receiver and 1,920 were reported dropped. The sum accounted for all submissions. The split depends on receiver throughput and scheduling. Tests also exercised shutdown deadlines, thread-local parent restoration, a retained tracer after client destruction and untrusted TLS. These observations concern Win32 and local receivers. Production latency, backend retention and other targets require validation in the deployment environment.
