@@ -12,6 +12,7 @@ type
     FData: TOTelSpanData;
     FTraceParent, FTraceState: string;
     FDuration: TStopwatch;
+    FDurationNanos: UInt64;
     procedure SetValue(const Key: string; const Value: Variant);
     procedure AppendEvent(const Name, ErrorType, ErrorMessage: string);
   public
@@ -28,6 +29,7 @@ type
     procedure WithContext(const Action: TProc);
     function IsRecording: Boolean;
     procedure Finish;
+    function FinishWithDuration: UInt64;
     property TraceParent: string read FTraceParent;
     property TraceState: string read FTraceState;
   end;
@@ -237,6 +239,11 @@ begin
 end;
 
 procedure TOTelSpan.Finish;
+begin
+  FinishWithDuration;
+end;
+
+function TOTelSpan.FinishWithDuration: UInt64;
 var
   Data: TOTelSpanData;
   Elapsed, Frequency: Int64;
@@ -244,13 +251,15 @@ begin
   TMonitor.Enter(Self);
   try
     Data := FData;
-    if Data = nil then Exit;
+    if Data = nil then Exit(FDurationNanos);
     Elapsed := FDuration.ElapsedTicks;
     Frequency := TStopwatch.Frequency;
-    Data.EndNanos := Data.StartNanos + UInt64((Elapsed div Frequency) * 1000000000
+    FDurationNanos := UInt64((Elapsed div Frequency) * 1000000000
       + (Elapsed mod Frequency) * 1000000000 div Frequency);
+    Data.EndNanos := Data.StartNanos + FDurationNanos;
     FData := nil;
     FSink.Submit(Data);
+    Result := FDurationNanos;
   finally
     TMonitor.Exit(Self);
   end;

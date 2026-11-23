@@ -1,0 +1,14 @@
+package OTel4DFireDACDesign;
+
+{$DESIGNONLY}
+{$DESCRIPTION 'OTel4D FireDAC components for the Delphi IDE'}
+
+requires
+  rtl,
+  designide,
+  OTel4DFireDAC;
+
+contains
+  OTel.Instrumentation.FireDAC.Design in 'OTel.Instrumentation.FireDAC.Design.pas';
+
+end.

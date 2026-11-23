@@ -1,6 +1,6 @@
 # OTel4D
 
-OTel4D sends traces directly from a Delphi application to an OpenTelemetry Collector or a compatible backend over HTTP. Open a client, obtain a tracer and create a span around an operation. The library propagates W3C trace context, encodes finished spans as Protobuf and sends them in batches on a worker thread. The verified target is Delphi 10.2 Tokyo Win32.
+OTel4D sends traces, logs and metrics directly from a Delphi application to an OpenTelemetry Collector or a compatible backend over HTTP. It propagates W3C trace context, correlates logs, aggregates metrics and exports each signal as binary Protobuf. Optional FireDAC components instrument blocking queries and stored procedure calls. The verified target is Delphi 10.2 Tokyo Win32.
 
 ## Start here
 
@@ -10,6 +10,8 @@ OTel4D sends traces directly from a Delphi application to an OpenTelemetry Colle
 | Integrate a desktop or service application | [Installation, configuration, API and context propagation](docs/integration.md) |
 | Understand the internal MVC design and wire mapping | [Implementation guide and supported features](docs/implementation.md) |
 | Diagnose missing spans or verify a build | [Delivery, shutdown, troubleshooting and tests](docs/operations.md) |
+| Add logs, metrics and automatic FireDAC capture | [Telemetry API, configuration and FireDAC migration](docs/telemetry.md) |
+| Review the implementation milestones | [Telemetry roadmap](docs/telemetry-roadmap.md) |
 
 ## Configure a Delphi application
 

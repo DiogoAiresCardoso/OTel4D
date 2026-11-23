@@ -15,3 +15,5 @@ Use a disposable checkout and set package output paths to a local build director
 Run `tests\run-configuration.cmd` from a Tokyo Command Prompt to build the Debug package and exercise the public configuration API from a package-linked Win32 consumer. The consumer controls its own process environment. It checks setting precedence, fallback defaults, snapshot isolation, URL rendering and invalid input.
 
 Run `tests\run-traces.cmd` to exercise trace capture and delivery through the package and decode actual HTTP requests using the official Python Protobuf bindings. Use the [verification guide](../docs/operations.md#verification) for prerequisites and the [Collector walkthrough](../docs/integration.md#run-the-local-example) for the backend interoperability check.
+
+Run `tests\run-telemetry.cmd` for log correlation, metric aggregation and delivery checks. Run `tests\run-firedac.cmd` for FireDAC BPLs, the migrated DFM fixture, SQL behavior and three-signal validation. The [verification guide](../docs/operations.md#verification) lists the Firebird and Collector paths used by optional checks.

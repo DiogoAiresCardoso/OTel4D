@@ -19,9 +19,11 @@ OTel4D instruments Delphi operations and sends completed spans as binary OTLP ov
 | Tracing | Manual spans, five span kinds, scalar attributes, named events, exception events, status, parent-based sampling and W3C trace context. |
 | Resource and scope | One service name per client. Each tracer supplies an instrumentation scope name and optional version. |
 | Delivery | An in-process worker sends uncompressed binary Protobuf to an HTTP or HTTPS endpoint. The application supplies configuration and instrumentation. |
-| Outside this implementation | Metrics, logs, baggage, links, arbitrary resource attributes, configurable samplers, gRPC, HTTP/JSON, disk spooling and automatic instrumentation. There is no FireDAC hook or IDE palette component in the runtime package. |
+| Logs and metrics | Structured log records with trace correlation. Cumulative counters, up-down counters and explicit-bucket histograms. |
+| FireDAC | Optional query and stored procedure components instrument supported blocking operations. Runtime and IDE packages are separate. |
+| Outside this implementation | Baggage, links, arbitrary resource attributes, configurable samplers, gRPC, HTTP/JSON, disk spooling and automatic instrumentation of existing unmodified components. |
 
-This is a trace integration with a defined subset of the OpenTelemetry API. Passing an interoperability test demonstrates that a receiver understood those spans. A claim of full SDK conformance would require broader API, configuration and signal coverage. [OpenTelemetry tracing API](https://opentelemetry.io/docs/specs/otel/trace/api/) · [OTLP specification](https://opentelemetry.io/docs/specs/otlp/)
+This implementation covers a defined subset of the OpenTelemetry API. See the [telemetry guide](telemetry.md) for log and metric types, independent workers, and FireDAC migration. [OpenTelemetry tracing API](https://opentelemetry.io/docs/specs/otel/trace/api/) · [OTLP specification](https://opentelemetry.io/docs/specs/otlp/)
 
 ## Runtime architecture
 

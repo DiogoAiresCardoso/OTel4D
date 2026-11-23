@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Send structured logs with trace correlation and export cumulative counters, up-down counters and histograms through independent OTLP/HTTP workers.
+- Add optional FireDAC query and stored procedure components that produce database client spans and a duration histogram.
+
 - Send manually instrumented Delphi traces over OTLP/HTTP with binary Protobuf, W3C parent propagation, background batching and bounded retries. Added a runnable Collector example and guides for application integration, internals and operations.
 
 - Reject incomplete or nonhexadecimal percent escapes in trace destinations. The DAO, service and view now raise `EArgumentNilException` for missing required options. The public configuration loader still accepts omitted overrides.
