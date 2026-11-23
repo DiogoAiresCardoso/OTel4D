@@ -1,6 +1,15 @@
 # OTel4D
 
-OTel4D is a Delphi library for direct OTLP/HTTP delivery. The base package resolves service identity and the destination for traces on Delphi 10.2 Tokyo Win32. Span capture, payload encoding and HTTP delivery are planned. MVC stays inside the library. [Architecture decision](docs/adr/0001-library-mvc-and-otlp-http.md)
+OTel4D sends traces directly from a Delphi application to an OpenTelemetry Collector or a compatible backend over HTTP. Open a client, obtain a tracer and create a span around an operation. The library propagates W3C trace context, encodes finished spans as Protobuf and sends them in batches on a worker thread. The verified target is Delphi 10.2 Tokyo Win32.
+
+## Start here
+
+| Goal | Guide |
+| --- | --- |
+| See a real parent and child span in a local Collector | [Build and run the first trace](docs/integration.md#run-the-local-example) |
+| Integrate a desktop or service application | [Installation, configuration, API and context propagation](docs/integration.md) |
+| Understand the internal MVC design and wire mapping | [Implementation guide and supported features](docs/implementation.md) |
+| Diagnose missing spans or verify a build | [Delivery, shutdown, troubleshooting and tests](docs/operations.md) |
 
 ## Configure a Delphi application
 
@@ -60,11 +69,11 @@ Empty settings fall through to the next candidate. A base URL gets the relative 
 
 | Directory beside the package | Responsibility |
 | --- | --- |
-| `source/controller` | The public `OTel.Api` facade coordinates configuration loading. |
-| `source/model/dto` | Input options and the resolved configuration returned to the caller. |
+| `source/controller` | Public API, configuration loading, span capture, batching and HTTP delivery. |
+| `source/model/dto` | Input options, configuration snapshots, span data and events. |
 | `source/model/dao` | Reads the supported process environment variables. |
-| `source/model/service` | Applies configuration precedence and defaults. |
-| `source/view` | Renders the resolved trace destination as an OTLP/HTTP URL. |
+| `source/model/service` | Configuration precedence, identifiers, timestamps and scoped trace context. |
+| `source/view` | Renders OTLP/HTTP endpoints, encodes trace batches and decodes acknowledgements. |
 
 From a RAD Studio 10.2 Command Prompt at the repository root, run `tests\run-configuration.cmd` to build the Debug package and run a console consumer against it. The package build writes the BPL and DCP under `source\Win32\Debug` or `source\Win32\Release`, according to the selected configuration.
 
