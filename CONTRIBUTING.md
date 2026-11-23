@@ -44,6 +44,7 @@ Open the OTel4D Git root as the workspace. In Codex, trust the project after rev
 | Task | Skill |
 | --- | --- |
 | Find existing behavior and decide what to reuse | [assess-reuse](.agents/skills/assess-reuse/SKILL.md) |
+| Implement Delphi units, components or sample applications using Embarcadero conventions | [develop-delphi](.agents/skills/develop-delphi/SKILL.md) |
 | Check a payload or delivery change against the wire contract | [verify-otlp-http](.agents/skills/verify-otlp-http/SKILL.md) |
 | Reproduce a Delphi build for a stated platform | [verify-delphi-build](.agents/skills/verify-delphi-build/SKILL.md) |
 | Review a diff and record the evidence | [review-engineering-change](.agents/skills/review-engineering-change/SKILL.md) |
