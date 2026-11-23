@@ -10,6 +10,7 @@ type
   strict private
     class procedure EmitLogs(Client: TOTelTraceClient); static;
     class procedure EmitMetrics(Client: TOTelTraceClient); static;
+    class procedure EmitPeriodic(Client: TOTelTraceClient); static;
   public
     class procedure Run; static;
   end;
@@ -32,6 +33,11 @@ begin
       Writeln('release receiver');
       Flush(Output);
       Exit;
+    end;
+    if ParamStr(1) = 'gate' then
+    begin
+      Logger.Emit(llInfo, 'wait for trace');
+      Readln;
     end;
     Tracer := Client.GetTracer('orders');
     try
@@ -148,6 +154,25 @@ begin
   end;
 end;
 
+class procedure TTelemetrySmoke.EmitPeriodic(Client: TOTelTraceClient);
+var
+  Meter: TOTelMeter;
+  Counter: TOTelCounter;
+begin
+  Meter := Client.GetMeter('periodic');
+  try
+    Counter := Meter.CreateCounter('periodic.count', '{item}');
+    try
+      Counter.Add(5);
+      Readln;
+    finally
+      Counter.Free;
+    end;
+  finally
+    Meter.Free;
+  end;
+end;
+
 class procedure TTelemetrySmoke.Run;
 var
   Client: TOTelTraceClient;
@@ -155,7 +180,9 @@ var
 begin
   Client := TOTel.Open;
   try
-    if ParamStr(1) = 'metrics' then EmitMetrics(Client) else EmitLogs(Client);
+    if ParamStr(1) = 'metrics' then EmitMetrics(Client)
+    else if ParamStr(1) = 'periodic' then EmitPeriodic(Client)
+    else EmitLogs(Client);
     Success := Client.ForceFlush(15000);
     if Client.Shutdown(15000) <> Success then
       raise Exception.Create('Shutdown changed delivery health.');
