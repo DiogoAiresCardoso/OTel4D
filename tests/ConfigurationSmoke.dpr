@@ -5,7 +5,10 @@ program ConfigurationSmoke;
 uses
   System.SysUtils,
   Winapi.Windows,
-  OTel.Api;
+  OTel.Api,
+  OTel.Model.Dao.Environment,
+  OTel.Model.Service.Configuration,
+  OTel.View.TraceEndpoint;
 
 type
   TConfigurationSmoke = class
@@ -15,6 +18,7 @@ type
     class procedure CheckValues(const Options: TOTelOptions; const Service, Endpoint: string); static;
     class procedure CheckOverrides; static;
     class procedure CheckInvalidEndpoint(const Endpoint: string); static;
+    class procedure CheckRequiredOptions; static;
   public
     class procedure Run; static;
   end;
@@ -70,6 +74,28 @@ begin
   end;
 end;
 
+class procedure TConfigurationSmoke.CheckRequiredOptions;
+begin
+  try
+    TEnvironmentDao.ReadInto(nil);
+    raise Exception.Create('The DAO accepted a missing destination object.');
+  except
+    on EArgumentNilException do ; // Expected for a required argument.
+  end;
+  try
+    TConfigurationService.ApplyOverridesAndDefaults(nil, nil);
+    raise Exception.Create('The service accepted a missing destination object.');
+  except
+    on EArgumentNilException do ;
+  end;
+  try
+    TTraceEndpointView.Render(nil);
+    raise Exception.Create('The view accepted a missing options object.');
+  except
+    on EArgumentNilException do ;
+  end;
+end;
+
 class procedure TConfigurationSmoke.CheckOverrides;
 var
   Options: TOTelOptions;
@@ -88,6 +114,9 @@ begin
       Options.ServiceName := 'worker';
       Options.TracesEndpoint := 'http://receiver.example:/';
       CheckValues(Options, 'worker', Options.TracesEndpoint);
+      Options.TracesEndpoint := '';
+      Options.Endpoint := 'https://receiver.example/tenant%2fone?value=%2520';
+      CheckValues(Options, 'worker', 'https://receiver.example/tenant%2fone/v1/traces?value=%2520');
     finally
       Options.Free;
     end;
@@ -120,6 +149,7 @@ begin
     Initial.Free;
   end;
 
+  CheckRequiredOptions;
   CheckInvalidEndpoint('relative/path');
   CheckInvalidEndpoint('ftp://receiver.example/');
   CheckInvalidEndpoint('http:///missing-host');
@@ -134,6 +164,9 @@ begin
   CheckInvalidEndpoint('https://receiver.example:private-value/');
   CheckInvalidEndpoint('https://operator:private-value@receiver.example/');
   CheckInvalidEndpoint('http://receiver.example/path#private-value');
+  CheckInvalidEndpoint('http://receiver.example/path%');
+  CheckInvalidEndpoint('http://receiver.example/path%2');
+  CheckInvalidEndpoint('http://receiver.example/?private-value=%ZZ');
   CheckInvalidEndpoint('http://receiver.example/' + #13 + #10);
 end;
 
