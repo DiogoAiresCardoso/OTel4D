@@ -21,6 +21,8 @@ The base URL gets the signal suffix, for example `/otel/v1/traces`. For a receiv
 
 ## Documentation
 
+Browse the guides in the [OTel4D project wiki](https://github.com/DiogoAiresCardoso/OTel4D/wiki).
+
 | Task | Guide |
 | --- | --- |
 | Learn the design and why each subsystem works this way | [Implementation and decisions](docs/implementation.md) |
@@ -34,4 +36,4 @@ The base URL gets the signal suffix, for example `/otel/v1/traces`. For a receiv
 
 ## Contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the review and verification workflow, [AGENTS.md](AGENTS.md) for engineering instructions, and [governance](GOVERNANCE.md), [security reporting](SECURITY.md), and [license status](LICENSE) before distributing project material. The repository is public and the distribution license is pending.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the review and verification workflow, [AGENTS.md](AGENTS.md) for engineering instructions, and [security reporting](SECURITY.md) to report a vulnerability. OTel4D is distributed under the Apache License 2.0. [License](LICENSE) · [Notices](NOTICE) · [Governance](GOVERNANCE.md)

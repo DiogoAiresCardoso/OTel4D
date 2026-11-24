@@ -34,7 +34,7 @@ This guide maps common OpenTelemetry patterns to the OTel4D API. The same concep
 | Install framework or database instrumentation | Instrument a Delphi boundary explicitly or migrate selected components to `TFDOtelQuery` and `TFDOtelStoredProc` | The host binds the FireDAC adapter at startup. Background task context, general framework interception, and zero-code injection require separate integration. |
 | Force an export or stop a provider | `Client.ForceFlush(TimeoutMs)`, `Client.Shutdown(TimeoutMs)`, then `Client.Free` | Delivery waits are bounded and use the same deadline across active signals. Reuse one client across operations. |
 
-For the three non-trace API surfaces in the upstream examples, see the [Java providers and APIs](https://opentelemetry.io/docs/languages/java/api/), [.NET metric instruments](https://opentelemetry.io/docs/languages/dotnet/metrics/instruments/), [.NET log correlation](https://opentelemetry.io/docs/languages/dotnet/logs/correlation/), [Go instrumentation](https://opentelemetry.io/docs/languages/go/instrumentation/), and the [Python instrumentation guide](https://opentelemetry.io/docs/languages/python/instrumentation/).
+For provider setup, metrics, and logging in upstream examples, see the [Java providers and APIs](https://opentelemetry.io/docs/languages/java/api/), [.NET metric instruments](https://opentelemetry.io/docs/languages/dotnet/metrics/instruments/), [.NET log correlation](https://opentelemetry.io/docs/languages/dotnet/logs/correlation/), [Go instrumentation](https://opentelemetry.io/docs/languages/go/instrumentation/), and the [Python instrumentation guide](https://opentelemetry.io/docs/languages/python/instrumentation/).
 
 ## Worked example
 
