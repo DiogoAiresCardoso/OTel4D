@@ -6,22 +6,29 @@ uses
   OTel.Api;
 
 type
+  TDemoScenario = (dsSuccess, dsRetry, dsRejected, dsUnavailable);
+
   TDemoTelemetrySession = class
   strict private
     FClient: TOTelTraceClient;
     FTracer: TOTelTracer;
     FLogger: TOTelLogger;
     FOperations: TOTelCounter;
+    FInventory: TOTelCounter;
     FDuration: TOTelHistogram;
     FPort: Integer;
     procedure OpenClient(Port: Integer);
     procedure CloseClient;
-    function CalculateOrderTotal: Int64;
-    procedure ReportOrder(const Span: TOTelSpan);
+    function CalculateOrderTotal(Quantity: Int64): Int64;
+    procedure RejectOrder(const Attributes: TOTelAttributes);
+    procedure InventoryAttempt(const Name: string; Attempt: Int64; Status: TOTelStatus;
+      Level: TOTelLogLevel; const Message: string; const Attributes: TOTelAttributes);
+    function RunOrder(const Span: TOTelSpan; Scenario: TDemoScenario): Int64;
     procedure CheckDelivery;
   public
     destructor Destroy; override;
-    procedure SendSample(Port: Integer; out TraceId, SpanId: string);
+    class function ScenarioCaption(Scenario: TDemoScenario): string; static;
+    procedure SendSample(Port: Integer; Scenario: TDemoScenario; out TraceId, SpanId: string);
   end;
 
 implementation
@@ -32,9 +39,23 @@ uses
 const
   ServiceName = 'otel4d-delphi-demo';
   ScopeName = 'OTel4D.TelemetryDemo';
-  ScopeVersion = '1.0';
+  ScopeVersion = '1.1';
   ExportTimeoutMs = 2500;
   FlushTimeoutMs = 6000;
+  OrderQuantity = 3;
+  QuantityLimit = 10;
+  UnitPriceCents = 1995;
+  ScenarioNames: array[TDemoScenario] of string = ('success', 'retry', 'rejected', 'unavailable');
+  InventoryReserve = 'demo.inventory.reserve';
+  InventoryRestock = 'demo.inventory.restock';
+
+class function TDemoTelemetrySession.ScenarioCaption(Scenario: TDemoScenario): string;
+const
+  Captions: array[TDemoScenario] of string = ('Successful order', 'Recovered retry',
+    'Rejected order', 'Dependency unavailable');
+begin
+  Result := Captions[Scenario];
+end;
 
 procedure TDemoTelemetrySession.OpenClient(Port: Integer);
 var
@@ -63,7 +84,9 @@ begin
   FLogger := FClient.GetLogger(ScopeName, ScopeVersion);
   Meter := FClient.GetMeter(ScopeName, ScopeVersion);
   try
-    FOperations := Meter.CreateCounter('otel4d.demo.operations', '', 'Completed demo order calculations.');
+    FOperations := Meter.CreateCounter('otel4d.demo.operations', '', 'Completed demo scenario runs.');
+    FInventory := Meter.CreateUpDownCounter('otel4d.demo.inventory.adjustment', '',
+      'Net change in simulated stock items.');
     FDuration := Meter.CreateHistogram('otel4d.demo.operation.duration', 's',
       'Time spent processing a demo order.', [0.0001, 0.001, 0.01, 0.1, 1]);
   finally
@@ -75,6 +98,7 @@ end;
 procedure TDemoTelemetrySession.CloseClient;
 begin
   FreeAndNil(FDuration);
+  FreeAndNil(FInventory);
   FreeAndNil(FOperations);
   FreeAndNil(FLogger);
   FreeAndNil(FTracer);
@@ -92,38 +116,120 @@ begin
   inherited;
 end;
 
-function TDemoTelemetrySession.CalculateOrderTotal: Int64;
-const
-  Quantity = 3;
-  UnitPriceCents = 1995;
+function TDemoTelemetrySession.CalculateOrderTotal(Quantity: Int64): Int64;
 var
   Calculation: TOTelSpan;
 begin
   Calculation := FTracer.StartSpan('demo.order.calculate');
   try
     Result := Quantity * UnitPriceCents;
-    Calculation.SetAttribute('demo.order.quantity', Int64(Quantity));
+    Calculation.SetAttribute('demo.order.quantity', Quantity);
     Calculation.SetAttribute('demo.order.total_cents', Result);
+    Calculation.SetAttribute('demo.order.unit_price', UnitPriceCents / 100);
+    Calculation.AddEvent('order.total.calculated');
+    Calculation.SetStatus(ssOk);
   finally
     Calculation.Free;
   end;
 end;
 
-procedure TDemoTelemetrySession.ReportOrder(const Span: TOTelSpan);
+procedure TDemoTelemetrySession.RejectOrder(const Attributes: TOTelAttributes);
+var
+  Validation: TOTelSpan;
+begin
+  Validation := FTracer.StartSpan('demo.order.validate');
+  try
+    Validation.SetAttribute('demo.order.quantity_limit', Int64(QuantityLimit));
+    Validation.SetStatus(ssError, 'Order quantity exceeds the demo limit');
+    Validation.AddEvent('order.rejected');
+    Validation.WithContext(
+      procedure
+      begin
+        FLogger.Emit(llError, 'Order quantity exceeds the demo limit', Attributes);
+      end);
+  finally
+    Validation.Free;
+  end;
+end;
+
+procedure TDemoTelemetrySession.InventoryAttempt(const Name: string; Attempt: Int64;
+  Status: TOTelStatus; Level: TOTelLogLevel; const Message: string;
+  const Attributes: TOTelAttributes);
+var
+  Inventory: TOTelSpan;
+begin
+  Inventory := FTracer.StartSpan(Name, skClient);
+  try
+    Inventory.SetAttribute('demo.attempt', Attempt);
+    Inventory.SetStatus(Status, Message);
+    if Status = ssError then
+    begin
+      Inventory.SetAttribute('error.type', 'demo.inventory.unavailable');
+      Inventory.AddEvent('inventory.attempt.failed');
+    end
+    else
+      Inventory.AddEvent('inventory.attempt.succeeded');
+    Inventory.WithContext(
+      procedure
+      begin
+        FLogger.Emit(Level, Message, Attributes);
+      end);
+  finally
+    Inventory.Free;
+  end;
+end;
+
+function TDemoTelemetrySession.RunOrder(const Span: TOTelSpan; Scenario: TDemoScenario): Int64;
 var
   Attributes: TOTelAttributes;
-  TotalCents: Int64;
+  Quantity, TotalCents: Int64;
 begin
-  TotalCents := CalculateOrderTotal;
-  Span.SetAttribute('demo.order.total_cents', TotalCents);
+  Result := 0;
+  Quantity := OrderQuantity;
+  if Scenario = dsRejected then Quantity := QuantityLimit + 1;
   Attributes := TOTelAttributes.Create;
   try
+    Attributes.Put('demo.scenario', ScenarioNames[Scenario]);
+    Attributes.Put('demo.simulated', True);
+    Attributes.Put('demo.order.quantity', Quantity);
+    Attributes.Put('demo.order.unit_price', UnitPriceCents / 100);
+    FLogger.Emit(llTrace, 'Order processing started', Attributes);
+    TotalCents := CalculateOrderTotal(Quantity);
+    Span.SetAttribute('demo.order.total_cents', TotalCents);
     Attributes.Put('demo.order.total_cents', TotalCents);
-    FLogger.Emit(llInfo, 'Demo order calculated', Attributes);
+    FLogger.Emit(llDebug, 'Order total calculated', Attributes);
+
+    case Scenario of
+      dsSuccess:
+        begin
+          InventoryAttempt(InventoryReserve, 1, ssOk, llDebug, 'Inventory reserved', Attributes);
+          Result := -Quantity;
+        end;
+      dsRetry:
+        begin
+          InventoryAttempt(InventoryRestock, 1, ssError, llWarn, 'Inventory restock timed out', Attributes);
+          Span.AddEvent('inventory.retry.scheduled');
+          InventoryAttempt(InventoryRestock, 2, ssOk, llDebug, 'Inventory restocked on retry', Attributes);
+          Result := Quantity;
+        end;
+      dsRejected:
+        begin
+          RejectOrder(Attributes);
+          Span.SetStatus(ssError, 'Order rejected');
+          Exit;
+        end;
+      dsUnavailable:
+        begin
+          InventoryAttempt(InventoryReserve, 1, ssError, llFatal, 'Inventory dependency unavailable', Attributes);
+          Span.SetStatus(ssError, 'Inventory dependency unavailable');
+          Exit;
+        end;
+    end;
+    FLogger.Emit(llInfo, 'Demo order processed', Attributes);
+    Span.SetStatus(ssOk);
   finally
     Attributes.Free;
   end;
-  Span.SetStatus(ssOk);
 end;
 
 procedure TDemoTelemetrySession.CheckDelivery;
@@ -135,10 +241,13 @@ begin
        FClient.RejectedMetricPoints]);
 end;
 
-procedure TDemoTelemetrySession.SendSample(Port: Integer; out TraceId, SpanId: string);
+procedure TDemoTelemetrySession.SendSample(Port: Integer; Scenario: TDemoScenario;
+  out TraceId, SpanId: string);
 var
   Span: TOTelSpan;
+  Labels: TOTelAttributes;
   ElapsedNanos: UInt64;
+  InventoryDelta: Int64;
 begin
   TraceId := '';
   SpanId := '';
@@ -148,17 +257,25 @@ begin
     try
       TraceId := Copy(Span.TraceParent, 4, 32);
       SpanId := Copy(Span.TraceParent, 37, 16);
+      Span.SetAttribute('demo.scenario', ScenarioNames[Scenario]);
       Span.WithContext(
         procedure
         begin
-          ReportOrder(Span);
+          InventoryDelta := RunOrder(Span, Scenario);
         end);
       ElapsedNanos := Span.FinishWithDuration;
     finally
       Span.Free;
     end;
-    FOperations.Add(1);
-    FDuration.RecordValue(ElapsedNanos / 1000000000);
+    Labels := TOTelAttributes.Create;
+    try
+      Labels.Put('demo.scenario', ScenarioNames[Scenario]);
+      FOperations.Add(1, Labels);
+      FInventory.Add(InventoryDelta, Labels);
+      FDuration.RecordValue(ElapsedNanos / 1000000000, Labels);
+    finally
+      Labels.Free;
+    end;
     CheckDelivery;
   except
     CloseClient;

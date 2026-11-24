@@ -33,9 +33,13 @@ The three published ports bind only to IPv4 loopback. Use `127.0.0.1` if your cl
 
 If another service uses a port, copy `.env.example` to `.env` and change the corresponding host port before running Compose. The internal endpoints stay the same. Keep `.env` local. To check that the default published gRPC port accepts a TCP connection from Windows, run `Test-NetConnection 127.0.0.1 -Port 4317`. This check covers connectivity. The smoke test exports using OTLP/HTTP.
 
-## Find a run in Grafana Explore
+## Validate the Delphi demo in Grafana
 
-To generate all three signals from a Windows application, use the [Delphi VCL telemetry demo](../../examples/TelemetryDemo/README.md).
+From this directory, run `docker compose up -d --wait --wait-timeout 180`. This also applies the dashboard mounts when the lab is already running. Open the [OTel4D Delphi Demo dashboard](http://127.0.0.1:3000/d/otel4d-delphi-demo/otel4d-delphi-demo). If you changed `GRAFANA_PORT`, use that port in the URL. The dashboard is provisioned as the lab's default home and uses the bundled Prometheus, Tempo, and Loki data sources.
+
+In the [Delphi VCL telemetry demo](../../examples/TelemetryDemo/README.md), select a scenario, click **Run scenario**, and wait for the Collector acknowledgement. With **Last 15 minutes** selected, refresh the dashboard to see the run count, mean duration and inventory adjustment by scenario, plus the traces and logs. The dashboard filters for `otel4d-delphi-demo`. The Compose smoke test uses `dac-otel-smoke` and is verified separately below.
+
+## Find a smoke-test run in Grafana Explore
 
 Choose a recent time range, such as **Last 15 minutes**, then select the relevant data source. Replace `TRACE_ID` and `SPAN_ID` with the IDs printed by the smoke container.
 

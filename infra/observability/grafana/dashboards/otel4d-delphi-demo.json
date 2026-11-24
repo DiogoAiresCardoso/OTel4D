@@ -1,0 +1,105 @@
+{
+  "uid": "otel4d-delphi-demo",
+  "title": "OTel4D Delphi Demo",
+  "description": "Run a scenario in the Delphi demo to generate correlated logs, traces, and metrics.",
+  "tags": ["OTel4D"],
+  "editable": false,
+  "schemaVersion": 41,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Scenario runs",
+      "description": "Latest cumulative count for each scenario. Includes simulated failures.",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "noValue": "No samples" } },
+      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{demo_scenario}}",
+          "expr": "last_over_time(otel4d_demo_operations_total{service_name=\"otel4d-delphi-demo\",demo_scenario!=\"\"}[$__range])"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Mean operation duration",
+      "description": "Mean of the latest cumulative duration histogram per scenario.",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "No samples" } },
+      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{demo_scenario}}",
+          "expr": "last_over_time(otel4d_demo_operation_duration_seconds_sum{service_name=\"otel4d-delphi-demo\",demo_scenario!=\"\"}[$__range]) / last_over_time(otel4d_demo_operation_duration_seconds_count{service_name=\"otel4d-delphi-demo\",demo_scenario!=\"\"}[$__range])"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Inventory adjustment",
+      "description": "Signed cumulative change in simulated inventory items per scenario.",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 0, "noValue": "No samples" } },
+      "options": { "colorMode": "none", "graphMode": "none", "textMode": "value_and_name" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "instant": true,
+          "range": false,
+          "legendFormat": "{{demo_scenario}}",
+          "expr": "last_over_time(otel4d_demo_inventory_adjustment{service_name=\"otel4d-delphi-demo\",demo_scenario!=\"\"}[$__range])"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Recent traces",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 8 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "tableType": "traces",
+          "limit": 20,
+          "query": "{ resource.service.name = \"otel4d-delphi-demo\" && span:name = \"demo.order.preview\" }"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "logs",
+      "title": "Recent logs",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": { "showTime": true, "enableLogDetails": true },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "queryType": "range",
+          "maxLines": 50,
+          "expr": "{service_name=\"otel4d-delphi-demo\"} | demo_scenario != \"\""
+        }
+      ]
+    }
+  ]
+}

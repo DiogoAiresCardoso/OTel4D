@@ -13,6 +13,8 @@ type
     ConnectionGroup: TGroupBox;
     PortLabel: TLabel;
     PortEdit: TEdit;
+    ScenarioLabel: TLabel;
+    ScenarioCombo: TComboBox;
     SendButton: TButton;
     ResultGroup: TGroupBox;
     StatusLabel: TLabel;
@@ -47,10 +49,14 @@ uses
 procedure TTelemetryDemoForm.FormCreate(Sender: TObject);
 var
   Port: string;
+  Scenario: TDemoScenario;
 begin
   FSession := TDemoTelemetrySession.Create;
   Port := Trim(GetEnvironmentVariable('OTLP_HTTP_PORT'));
   if Port <> '' then PortEdit.Text := Port;
+  for Scenario := Low(TDemoScenario) to High(TDemoScenario) do
+    ScenarioCombo.Items.Add(TDemoTelemetrySession.ScenarioCaption(Scenario));
+  ScenarioCombo.ItemIndex := Ord(dsSuccess);
 end;
 
 destructor TTelemetryDemoForm.Destroy;
@@ -73,6 +79,7 @@ procedure TTelemetryDemoForm.SetSending(Sending: Boolean);
 begin
   SendButton.Enabled := not Sending;
   PortEdit.Enabled := not Sending;
+  ScenarioCombo.Enabled := not Sending;
 end;
 
 procedure TTelemetryDemoForm.SendButtonClick(Sender: TObject);
@@ -91,7 +98,7 @@ begin
   SpanIdEdit.Clear;
   StatusLabel.Caption := 'Sending traces, logs and metrics...';
   try
-    FSendThread := TDemoSendThread.Create(FSession, Port);
+    FSendThread := TDemoSendThread.Create(FSession, Port, TDemoScenario(ScenarioCombo.ItemIndex));
     SetSending(True);
     FSendThread.Start;
     CompletionTimer.Enabled := True;
@@ -114,7 +121,7 @@ begin
   TraceIdEdit.Text := FSendThread.TraceId;
   SpanIdEdit.Text := FSendThread.SpanId;
   if FSendThread.ErrorMessage = '' then
-    StatusLabel.Caption := 'Collector acknowledged the sample. Use the Trace ID in Grafana Explore.'
+    StatusLabel.Caption := 'Collector acknowledged the scenario. Find its Trace ID in Grafana.'
   else
     StatusLabel.Caption := FSendThread.ErrorMessage;
   FreeAndNil(FSendThread);

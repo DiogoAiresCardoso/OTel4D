@@ -77,6 +77,8 @@ Install the Python package in the development environment or virtual environment
 
 For the FireDAC suite, opt in to the embedded database and actual Collector checks by setting `OTEL4D_TEST_FIREBIRD` to a Win32 Firebird client DLL with embedded support and `OTEL4D_TEST_COLLECTOR` to the official Collector executable. The suite creates a disposable Firebird database and starts the Collector on loopback. The SQLite and failure tests run without those settings. [FireDAC verifier](../tests/verify_firedac.py)
 
+If Firebird reports a lock conflict with another Windows session, rerun the suite with a dedicated copy of the embedded installation and set `FIREBIRD_LOCK` to a writable directory for that test process. Use this setup only with the disposable test database. [Firebird environment variables](https://www.firebirdsql.org/file/documentation/chunk/en/refdocs/fbconf/fbconf-environment-variables.html)
+
 | Check | Evidence it provides |
 | --- | --- |
 | Repository checks | Layout and coding guardrails, local Markdown file references and policy regression tests. |
