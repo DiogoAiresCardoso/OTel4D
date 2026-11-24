@@ -4,7 +4,7 @@ object TelemetryDemoForm: TTelemetryDemoForm
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = 'OTel4D Telemetry Lab'
-  ClientHeight = 375
+  ClientHeight = 393
   ClientWidth = 664
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -22,7 +22,7 @@ object TelemetryDemoForm: TTelemetryDemoForm
     Top = 19
     Width = 344
     Height = 31
-    Caption = 'Send a telemetry sample'
+    Caption = 'Run a telemetry scenario'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -23
@@ -35,26 +35,26 @@ object TelemetryDemoForm: TTelemetryDemoForm
     Top = 58
     Width = 616
     Height = 17
-    Caption = 'Generate an order trace, a correlated log, a counter and a duration histogram.'
+    Caption = 'Send correlated logs, traces and metrics for a simulated order.'
   end
   object ConnectionGroup: TGroupBox
     Left = 24
     Top = 96
     Width = 616
-    Height = 79
+    Height = 97
     Caption = 'Local Collector'
     TabOrder = 0
     object PortLabel: TLabel
       Left = 18
-      Top = 39
+      Top = 25
       Width = 130
       Height = 17
       Caption = 'http://127.0.0.1 port'
       FocusControl = PortEdit
     end
     object PortEdit: TEdit
-      Left = 158
-      Top = 34
+      Left = 18
+      Top = 49
       Width = 78
       Height = 25
       MaxLength = 5
@@ -62,20 +62,36 @@ object TelemetryDemoForm: TTelemetryDemoForm
       TabOrder = 0
       Text = '4318'
     end
+    object ScenarioLabel: TLabel
+      Left = 155
+      Top = 25
+      Width = 52
+      Height = 17
+      Caption = 'Sce&nario'
+      FocusControl = ScenarioCombo
+    end
+    object ScenarioCombo: TComboBox
+      Left = 155
+      Top = 49
+      Width = 245
+      Height = 25
+      Style = csDropDownList
+      TabOrder = 1
+    end
     object SendButton: TButton
       Left = 450
-      Top = 29
+      Top = 44
       Width = 146
       Height = 35
-      Caption = '&Send sample'
+      Caption = '&Run scenario'
       Default = True
-      TabOrder = 1
+      TabOrder = 2
       OnClick = SendButtonClick
     end
   end
   object ResultGroup: TGroupBox
     Left = 24
-    Top = 194
+    Top = 212
     Width = 616
     Height = 157
     Caption = 'Delivery result'

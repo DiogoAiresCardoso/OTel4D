@@ -10,6 +10,7 @@ services:
       - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
     environment:
       ENABLE_OBI: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/otel4d-dashboards/otel4d-delphi-demo.json
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
@@ -19,6 +20,8 @@ services:
       PYROSCOPE_EXTRA_ARGS: "-usage-stats.enabled=false"
     volumes:
       - telemetry-data:/data
+      - ./grafana/provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/otel4d.yaml:ro
+      - ./grafana/dashboards:/otel-lgtm/otel4d-dashboards:ro
 
   smoke:
     image: python:3.13-alpine
