@@ -4,14 +4,16 @@ Telemetry Demo is a VCL application for the local OpenTelemetry lab. Each scenar
 
 ## Build and run
 
-Start the [local Compose lab](../../infra/observability/README.md). In RAD Studio 10.2 Tokyo, open [TelemetryDemo.dproj](TelemetryDemo.dproj), select Win32 and run the project. The project links the OTel4D units directly into the executable.
+Start the [local Compose lab](../../infra/observability/README.md). In RAD Studio 10.2 Tokyo, open [OTel4D.groupproj](../../OTel4D.groupproj), select Win32 and build the group. Activate **TelemetryDemo** and run it. The group builds `OTel4D` first. The demo links against its compiled package and runs with `OTel4D.bpl` alongside the executable.
 
 From a RAD Studio Command Prompt at the repository root, run the same build with:
 
 ```bat
-msbuild examples\TelemetryDemo\TelemetryDemo.dproj /t:Build /p:Config=Release /p:Platform=Win32
-examples\TelemetryDemo\Win32\Release\TelemetryDemo.exe
+msbuild OTel4D.groupproj /t:Build /p:Config=Release /p:Platform=Win32
+source\Win32\Release\TelemetryDemo.exe
 ```
+
+To build a local ZIP with the demo, runtime packages and Docker lab, run `powershell -NoProfile -File tools\build-demo-bundle.ps1` from that Command Prompt. The default output is `dist\OTel4D-win32-Release.zip`. Use `-Configuration Debug` to build a Debug bundle. [Bundle usage guide](../../docs/demo-bundle.md)
 
 Leave the port at `4318` for the default Compose configuration. If you changed `OTLP_HTTP_PORT` in the lab, enter that port in the form. The demo also accepts `OTLP_HTTP_PORT` from the process environment as the initial value. It sends to `127.0.0.1` using explicit local export settings and synthetic data. Select a scenario, click **Run scenario** and wait for the Collector acknowledgement. Copy the Trace ID or Span ID from the result.
 
