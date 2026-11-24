@@ -35,6 +35,8 @@ If another service uses a port, copy `.env.example` to `.env` and change the cor
 
 ## Find a run in Grafana Explore
 
+To generate all three signals from a Windows application, use the [Delphi VCL telemetry demo](../../examples/TelemetryDemo/README.md).
+
 Choose a recent time range, such as **Last 15 minutes**, then select the relevant data source. Replace `TRACE_ID` and `SPAN_ID` with the IDs printed by the smoke container.
 
 | Data source | Query | Expected result |

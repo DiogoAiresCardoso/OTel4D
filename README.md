@@ -13,6 +13,7 @@ OTel4D sends traces, logs and metrics directly from a Delphi application to an O
 | Add logs, metrics and automatic FireDAC capture | [Telemetry API, configuration and FireDAC migration](docs/telemetry.md) |
 | Review the implementation milestones | [Telemetry roadmap](docs/telemetry-roadmap.md) |
 | Exercise OTLP against local storage | [Docker Compose observability lab](infra/observability/README.md) |
+| Send all three signals from a Delphi application | [VCL telemetry demo](examples/TelemetryDemo/README.md) |
 
 ## Configure a Delphi application
 
