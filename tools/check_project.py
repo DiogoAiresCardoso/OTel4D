@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import tomllib
+from xml.etree import ElementTree
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,10 +19,10 @@ REQUIRED = {
     "GOVERNANCE.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "LICENSE", "CHANGELOG.md",
     ".github/pull_request_template.md", ".github/CODEOWNERS", ".github/workflows/quality.yml",
     ".github/rulesets/gitflow.json", ".codex/rules/git-safety.rules",
-    "docs/adr/0001-library-mvc-and-otlp-http.md",
+    "docs/adr/0001-library-mvc-and-otlp-http.md", "docs/adr/0003-hexagonal-telemetry.md",
     *(f"docs/engineering/{name}.md" for name in POLICIES),
 }
-GENERATED_SUFFIXES = (".dproj.local", ".groupproj.local", ".identcache", ".dsk", ".dcu", ".dcp", ".bpl", ".tds")
+GENERATED_SUFFIXES = (".dproj.local", ".groupproj.local", ".identcache", ".dsk", ".dcu", ".dcp", ".bpl", ".tds", ".stat")
 SECRET_MARKERS = re.compile(
     r"-----BEGIN (?:OPENSSH |RSA |EC |DSA |ENCRYPTED )?PRIVATE KEY-----"
     r"|\bgh[pousr]_[A-Za-z0-9]{36,}\b|\bgithub_pat_[A-Za-z0-9_]{50,}\b"
@@ -69,6 +70,48 @@ def markdown_issues(root, path, content):
             destination = (base / relative.lstrip("/")).resolve()
             if not destination.is_relative_to(root) or not destination.exists():
                 yield f"{path}:{number}: unresolved repository link: {relative}"
+
+
+PLATFORM_IMPORTS = ("winapi", "system.win", "vcl", "fmx", "firedac", "system.net",
+                    "data.win", "system.ioutils", "idhttp")
+ALLOWED_CORE_LAYERS = {"domain": {"domain"}, "application": {"domain", "application"}}
+
+
+def delphi_imports(code):
+    for clause in re.finditer(r"\buses\s+(.*?);", code, re.I | re.S):
+        for unit in clause[1].split(","):
+            identifier = re.match(r"\s*([\w.]+)", unit)
+            if identifier:
+                yield identifier[1]
+
+
+def layer_issues(path, content, units):
+    if len(path.parts) < 3 or path.parts[0] != "source":
+        return
+    layer = path.parts[1]
+    if layer not in ALLOWED_CORE_LAYERS:
+        return
+    for imported in delphi_imports(PASCAL_NONCODE.sub(" ", content)):
+        name = imported.lower()
+        target = units.get(name)
+        if target and target.parts[1] not in ALLOWED_CORE_LAYERS[layer]:
+            yield f"{path}: {layer} depends on outer unit {imported}"
+        if any(name == prefix or name.startswith(prefix + ".") for prefix in PLATFORM_IMPORTS):
+            yield f"{path}: {layer} depends on platform unit {imported}"
+
+
+def package_issues(root, package):
+    project = package.with_suffix(".dproj")
+    if not (root / project).is_file():
+        return
+    code = (root / package).read_text(encoding="utf-8-sig", errors="replace")
+    declarations = {name.replace("\\", "/").lower() for name in
+                    re.findall(r"\bin\s+'([^']+\.pas)'", code, re.I)}
+    references = {node.attrib["Include"].replace("\\", "/").lower()
+                  for node in ElementTree.parse(root / project).iter()
+                  if node.tag.endswith("DCCReference") and node.attrib["Include"].lower().endswith(".pas")}
+    if declarations != references:
+        yield f"{package}: unit references differ from {project}: {sorted(declarations ^ references)}"
 
 
 def model_issues(path, content):
@@ -175,8 +218,14 @@ def project_issues(root):
         if not any(p.match(pattern) for p in paths):
             yield f"{pattern}: missing project configuration"
     names = set()
+    units = {path.stem.lower(): path for path in paths
+             if len(path.parts) > 2 and path.parts[0] == "source" and path.suffix.lower() == ".pas"}
     for path in paths:
         yield from file_issues(root, path, names)
+        if units.get(path.stem.lower()) == path and not (root / path).is_symlink():
+            yield from layer_issues(path, (root / path).read_text(encoding="utf-8-sig", errors="replace"), units)
+        if path.suffix.lower() == ".dpk":
+            yield from package_issues(root, path)
 
 
 if __name__ == "__main__":

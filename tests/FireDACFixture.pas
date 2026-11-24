@@ -30,14 +30,23 @@ uses
 procedure TDatabaseFixture.QueryAfterOpen(DataSet: TDataSet);
 begin
   Inc(FOpened);
+  // The operation still owns its recorder when a synchronous callback detaches it.
+  Instrumentation.Detach;
 end;
 
 procedure TDatabaseFixture.RunSQLite(Client: TOTelTraceClient; ExerciseFailure: Boolean);
+var
+  QueryAdapter, ProcAdapter: IOTelFireDACDataSet;
+  Binding: IOTelFireDACInstrumentation;
 begin
-  if (Query.Instrumentation <> Instrumentation) or (Query.Connection <> Connection) or
+  QueryAdapter := Query;
+  ProcAdapter := Proc;
+  Binding := Instrumentation;
+  if (QueryAdapter.Instrumentation <> Instrumentation) or (ProcAdapter.Instrumentation <> Instrumentation) or
+     (Query.Connection <> Connection) or
      (QueryAmount.DataSet <> Query) or not Assigned(Query.AfterOpen) then
     raise Exception.Create('The migrated DFM lost a component reference, persistent field or event.');
-  Instrumentation.Bind(Client);
+  Binding.Bind(Client);
   Connection.Params.Values['DriverID'] := 'SQLite';
   Connection.Params.Values['Database'] := ':memory:';
   Connection.Open;
@@ -56,6 +65,7 @@ begin
   end;
   if ExerciseFailure then
   begin
+    Binding.Bind(Client);
     Query.SQL.Text := 'delete from sensitive-missing-table-fixture';
     try
       Query.ExecSQL;

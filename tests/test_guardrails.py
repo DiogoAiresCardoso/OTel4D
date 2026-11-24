@@ -54,6 +54,28 @@ end."""
         self.assertIn("FireDAC.Comp.Client", issues[0])
         self.assertIn("OTel.View.Protobuf", issues[1])
 
+    def test_core_boundaries_check_platform_and_both_uses_clauses(self):
+        model = Path("source/domain/Event.pas")
+        application = Path("source/application/Recording.pas")
+        adapter = Path("source/adapters/otlp/Exporter.pas")
+        units = {"event": model, "recording": application, "exporter": adapter}
+        source = "unit Recording; interface uses Event; implementation uses Exporter, Winapi.Windows; end."
+        issues = list(gate.layer_issues(application, source, units))
+        self.assertEqual(len(issues), 2)
+        self.assertIn("outer unit Exporter", issues[0])
+        self.assertIn("platform unit Winapi.Windows", issues[1])
+        self.assertEqual(list(gate.layer_issues(adapter, source, units)), [])
+        self.assertEqual(len(list(gate.layer_issues(model, "unit Event; uses Recording; end.", units))), 1)
+
+    def test_package_and_project_must_declare_the_same_units(self):
+        package = self.write("source/Example.dpk", "package Example; contains UnitA in 'application\\UnitA.pas'; end.")
+        self.write("source/Example.dproj",
+                   '<Project><DCCReference Include="application/UnitB.pas"/></Project>')
+        self.assertEqual(len(list(gate.package_issues(self.root, package))), 1)
+        self.write("source/Example.dproj",
+                   '<Project><DCCReference Include="application/UnitA.pas"/></Project>')
+        self.assertEqual(list(gate.package_issues(self.root, package)), [])
+
     def test_class_policy_checks_private_classes_and_exceptions(self):
         path = self.write("source/Queue.pas", """unit Queue;
 interface

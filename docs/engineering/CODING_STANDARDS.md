@@ -2,6 +2,8 @@
 
 Define Delphi DTOs and domain entities as classes. Implement behavior as methods on the responsible class across controllers, views, DAOs, services, tests and examples. Use private methods for helpers. Standalone functions and procedures are prohibited. Avoid defining record types in project code. Keep RTL and platform value types at the boundaries that use them. Document object ownership at public entry points, including the lifetime of returned snapshots.
 
+Give new classes a behavior interface and implement it with instance methods. Apply the same rule when refactoring adapters. Keep existing public static entry points compatible. A Delphi component implements the applicable interface and retains Delphi owner and DFM semantics. Use reference-counted interfaces for operation state that must outlive its binding.
+
 Define at most one class per Delphi unit or program, including work queues, private helpers and exceptions. Use type aliases to preserve public facade names when a class moves to a dedicated unit. Interfaces and class references can share a unit with its class.
 
 Use intention-revealing English names and project formatting. Prefer typed domain values, named constants, explicit ownership and short routines. Use guard clauses to simplify valid paths and keep error handling close to the operation that failed. Avoid dead code, hidden mutable globals and generic catch-all handlers that hide application exceptions. Record necessary debt with impact and a follow-up.

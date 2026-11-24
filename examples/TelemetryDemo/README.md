@@ -54,6 +54,8 @@ Use a recent time range for the log and metric queries. For the histogram, the `
 
 ## Verify all four scenarios
 
+For a repeatable run, execute `tests\run-demo-grafana.cmd 4318` from a Tokyo Command Prompt at the repository root with the lab healthy. The console runner builds the Release BPL and executes the same session and scenario code as the VCL form. It prints the four Trace IDs in verifier order. Use the configured port when it differs from 4318.
+
 Run each scenario and copy its Trace ID. Within 15 minutes, run the verifier from `infra/observability`, using the IDs in the order shown:
 
 ```powershell

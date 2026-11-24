@@ -1,6 +1,8 @@
 # OTel4D implementation roadmap for logs, metrics and FireDAC
 
-OTel4D sends all three signals from the Delphi process over OTLP/HTTP with binary Protobuf. The Delphi 10.2 Tokyo Win32 runtime retains MVC internally. Application code uses the public `OTel.Api` facade. FireDAC requires a separate runtime package and uses an optional Delphi IDE package.
+OTel4D sends all three signals from the Delphi process over OTLP/HTTP with binary Protobuf. The Delphi 10.2 Tokyo Win32 runtime uses [ports and adapters](adr/0003-hexagonal-telemetry.md) internally. Application code uses the public `OTel.Api` facade. FireDAC requires a separate runtime package and uses an optional Delphi IDE package.
+
+The milestones below record the implementation sequence and its planned checks. For current behavior and the evidence available for each check, see [Implementation decisions](implementation.md#implementation-decisions) and [Verification](operations.md#verification).
 
 ## Milestone 1 — Structured logs
 

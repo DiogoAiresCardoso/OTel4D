@@ -5,13 +5,13 @@ description: Implement or change Delphi units, components and sample application
 
 ## Choose where the change belongs
 
-Trace the requested behavior from its caller. For a library feature, keep the public API independent of the host application's framework. For a sample, call that API from the host's existing startup, event and shutdown paths. OTel4D owns OTLP/HTTP delivery. Its MVC View encodes telemetry. A VCL form belongs to the host or sample. [OTel4D architecture decision](../../../docs/adr/0001-library-mvc-and-otlp-http.md)
+Trace the requested behavior from its caller. For a library feature, keep the public API independent of the host application's framework. For a sample, call that API from the host's existing startup, event and shutdown paths. OTel4D owns OTLP/HTTP delivery. The OTLP adapter encodes telemetry behind an export interface. A VCL form belongs to the host or sample. [OTel4D architecture decision](../../../docs/adr/0003-hexagonal-telemetry.md)
 
 When adding a component for the IDE palette, put its implementation in the runtime package. Put palette registration and property editors in a design-time package that requires the runtime package. Opening a form in the designer must leave telemetry delivery inactive. [Embarcadero design-time packages](https://docwiki.embarcadero.com/RADStudio/Alexandria/en/Design-time_Packages)
 
 ## Write Object Pascal for the target
 
-OTel4D uses classes for its Delphi code. Define every DTO and domain entity as a class, including small data carriers with only one field. Put controller, view, DAO and service behavior on the class that owns it. Use private methods for helpers and class methods for operations that need no instance state. Standalone functions and procedures are prohibited in project units, tests and samples. Keep the program entry block short and delegate to a class when it needs application logic.
+OTel4D uses classes for its Delphi code. Define every DTO and domain entity as a class, including small data carriers with only one field. Keep behavior on its owning application service or adapter. Give new services a behavior interface and instantiate by interface at composition. Use private instance methods for helpers and preserve established public static entry points. Standalone functions and procedures are prohibited in project units, tests and samples. Keep the program entry block short and delegate to a class when it needs application logic.
 
 Define at most one class in each Delphi unit or program. Place secondary classes, including private workers, exception classes and class helpers, in their own units. Facades may re-export existing classes as type aliases. Run `python tools/check_project.py` to verify the layout.
 

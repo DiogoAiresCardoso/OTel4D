@@ -16,6 +16,7 @@ type
     class procedure Check(Test: Boolean; const Reason: string); static;
     class procedure Emit(Tracer: TOTelTracer); static;
     class procedure FillQueue(Tracer: TOTelTracer); static;
+    class procedure EmitLargeBatch(Tracer: TOTelTracer); static;
     class procedure Disabled; static;
   public
     class procedure Run; static;
@@ -149,6 +150,25 @@ begin
   end;
 end;
 
+class procedure TTraceSmoke.EmitLargeBatch(Tracer: TOTelTracer);
+var
+  I, J: Integer;
+  Span: TOTelSpan;
+  Payload: string;
+begin
+  Payload := StringOfChar(#$00E1, 1024);
+  for I := 1 to 128 do
+  begin
+    Span := Tracer.StartSpan('orders.large');
+    try
+      Span.SetAttribute('sequence', Int64(I));
+      for J := 1 to 31 do Span.SetAttribute('synthetic.key.' + IntToStr(J), Payload);
+    finally
+      Span.Free;
+    end;
+  end;
+end;
+
 class procedure TTraceSmoke.Run;
 var
   Client: TOTelTraceClient;
@@ -163,6 +183,7 @@ begin
     try
       Tracer := Client.GetTracer('orders.delphi', '1.0');
       if ParamStr(1) = 'pressure' then FillQueue(Tracer)
+      else if ParamStr(1) = 'large' then EmitLargeBatch(Tracer)
       else Emit(Tracer);
       if (ParamStr(1) = 'pressure') or (ParamStr(1) = 'delayed') then
       begin
