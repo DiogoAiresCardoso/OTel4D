@@ -55,6 +55,41 @@ Options passed to `TOTel.Open(Options)` override the process environment read at
 
 **Programmatic configuration.** Create `TOTelOptions`, assign the properties you own, call `TOTel.Open(Options)`, then free the options. The client remains usable. Empty string settings fall through to environment values. Array, sampler, batch processor, resource-attribute and other generic SDK settings outside the table have no configuration binding in this version.
 
+## Configure Bearer authentication in Delphi
+
+Load the receiver's base HTTPS URL and ingestion token from application configuration at startup. Supply the raw Bearer token to this helper. The header parser decodes `%20` into the space after `Bearer`.
+
+```pascal
+uses
+  OTel.Api;
+
+function OpenTelemetry(const ServiceName, BaseUrl, IngestionToken: string): TOTelTraceClient;
+var
+  Options: TOTelOptions;
+  AuthHeader: string;
+begin
+  AuthHeader := 'Authorization=Bearer%20' + IngestionToken;
+  Options := TOTelOptions.Create;
+  try
+    Options.ServiceName := ServiceName;
+    Options.Endpoint := BaseUrl;
+    Options.TraceProtocol := 'http/protobuf';
+    Options.LogsProtocol := 'http/protobuf';
+    Options.MetricsProtocol := 'http/protobuf';
+    Options.TraceHeaders := AuthHeader;
+    Options.LogsHeaders := AuthHeader;
+    Options.MetricsHeaders := AuthHeader;
+    Result := TOTel.Open(Options);
+  finally
+    Options.Free;
+  end;
+end;
+```
+
+Keep the returned client for the application or service lifetime. Call `Shutdown` before freeing it. If different signals use different credentials, assign the appropriate full header list to each option. The host supplies and rotates its credentials. Create a new client for updated settings after draining the old one. [Lifecycle and counters](operations.md#flush-and-shutdown) · [OTLP exporter configuration](https://opentelemetry.io/docs/specs/otel/protocol/exporter/)
+
+The VCL demo intentionally models the local lab. Its form accepts a port and `TDemoTelemetrySession.OpenClient` constructs a loopback destination with an explicit configuration snapshot. The production example above uses the public configuration entry point. [Demo client construction](../examples/TelemetryDemo/TelemetryDemo.Session.pas)
+
 ## Public API and ownership
 
 Application code imports `OTel.Api`. The application owns each returned client, tracer, span and configuration snapshot. Local object assignment aliases an instance. Free each object once and use `try/finally` at its ownership boundary. [Public facade](../source/controller/OTel.Api.pas) · [Runnable ownership example](../examples/FirstTrace.dpr)

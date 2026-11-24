@@ -2,6 +2,8 @@
 
 OTel4D sends all three signals from the Delphi process over OTLP/HTTP with binary Protobuf. The Delphi 10.2 Tokyo Win32 runtime retains MVC internally. Application code uses the public `OTel.Api` facade. FireDAC requires a separate runtime package and uses an optional Delphi IDE package.
 
+The milestones below record the implementation sequence and its planned checks. For current behavior and the evidence available for each check, see [Implementation decisions](implementation.md#implementation-decisions) and [Verification](operations.md#verification).
+
 ## Milestone 1 — Structured logs
 
 - Expose `Client.GetLogger(ScopeName, ScopeVersion)` and `Logger.Emit(Level, Body, Attributes, TimestampUnixNano)`. The logger snapshots typed attributes, source and observation timestamps, and any valid active trace IDs and flags before returning. Export valid correlation for an unsampled trace as well. Absent context leaves the IDs empty.
