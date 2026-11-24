@@ -1,6 +1,6 @@
 # OTel4D Win32 demo bundle
 
-Use this bundle to test OTel4D locally. It contains the Win32 `TelemetryDemo.exe`, the `OTel4D.bpl` runtime package, its `OTel4D.dcp` compile-time package, and the Delphi 10.2 Tokyo RTL and VCL runtimes used by the demo. The `observability` directory contains the Dockerfile, Compose configuration, dashboard and integration checks. See the included `LICENSE` for the OTel4D distribution status.
+Use this bundle to test OTel4D locally. It contains the Win32 `TelemetryDemo.exe`, the `OTel4D.bpl` runtime package, its `OTel4D.dcp` compile-time package, and the Delphi 10.2 Tokyo RTL and VCL runtimes used by the demo. The `observability` directory contains the Dockerfile, Compose configuration, dashboard and integration checks. See the included `LICENSE` and `NOTICE` for the OTel4D project. The Delphi runtimes follow the Embarcadero redistribution terms.
 
 ## Run the lab and demo
 
