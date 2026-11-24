@@ -2,26 +2,14 @@ name: otel-local-test
 
 services:
   lgtm:
-    image: grafana/otel-lgtm:0.41.1
+    build: .
     restart: "no"
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
       - "127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317"
       - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
-    environment:
-      ENABLE_OBI: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/otel4d-dashboards/otel4d-delphi-demo.json
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
-      GF_PLUGINS_PREINSTALL_DISABLED: "true"
-      LOKI_EXTRA_ARGS: "-reporting.enabled=false"
-      TEMPO_EXTRA_ARGS: "-reporting.enabled=false"
-      PYROSCOPE_EXTRA_ARGS: "-usage-stats.enabled=false"
     volumes:
       - telemetry-data:/data
-      - ./grafana/provisioning.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/otel4d.yaml:ro
-      - ./grafana/dashboards:/otel-lgtm/otel4d-dashboards:ro
 
   smoke:
     image: python:3.13-alpine

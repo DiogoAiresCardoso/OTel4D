@@ -1,24 +1,25 @@
 # Local OpenTelemetry test lab
 
-This lab exercises OTLP for future MaxxRural VCL, DataSnap and Horse integrations. Run it on Docker Desktop in Linux container mode with WSL 2 on Windows. Compose runs the Collector, Grafana, Tempo, Prometheus, Loki and Pyroscope together in the official Grafana LGTM image. A separate one-shot container runs the synthetic test with Python's standard library. [Grafana LGTM source](https://github.com/grafana/docker-otel-lgtm) · [OTLP specification](https://opentelemetry.io/docs/specs/otlp/)
+This lab exercises OTLP for future MaxxRural VCL, DataSnap and Horse integrations. Run it on Docker Desktop in Linux container mode with WSL 2 on Windows. The [Dockerfile](Dockerfile) extends the digest-pinned Grafana LGTM image with the OTel4D dashboard and local settings. The image runs the Collector, Grafana, Tempo, Prometheus, Loki and Pyroscope. A separate one-shot container runs the synthetic test with Python's standard library. Run the VCL demo on the Windows host. [Grafana LGTM source](https://github.com/grafana/docker-otel-lgtm) · [OTLP specification](https://opentelemetry.io/docs/specs/otlp/)
 
 ## Start and verify
 
-From the repository root, enter the lab directory. The first pull downloads the images for both services.
+From the repository root, enter the lab directory. The first build fetches the Grafana LGTM base image if needed. Compose downloads the smoke image when the test runs.
 
 ```powershell
 Set-Location infra/observability
 docker version
 docker compose version
 docker compose config -q
-docker compose --profile test pull
-docker compose up -d --wait --wait-timeout 180
+docker compose up -d --build --wait --wait-timeout 180
 docker compose ps
 docker compose run --rm smoke
 docker compose logs --tail=100 lgtm
 ```
 
 Compose waits for LGTM's built-in health check. The smoke container sends one span, one gauge data point and one correlated INFO log by OTLP/HTTP JSON. It accepts HTTP 200 with a valid JSON acknowledgement and zero rejected items. Transient failures get limited retries. The test then queries all three Grafana data sources for the exact run. It exits nonzero on delivery or query failure.
+
+Run `docker compose build lgtm` to build the image without starting the stack. To rebuild and apply dashboard changes, run the same `docker compose up` command with `--build`. Telemetry remains in the named volume during image updates.
 
 | Service | Windows host | Inside the Compose network |
 | --- | --- | --- |
@@ -35,7 +36,7 @@ If another service uses a port, copy `.env.example` to `.env` and change the cor
 
 ## Validate the Delphi demo in Grafana
 
-From this directory, run `docker compose up -d --wait --wait-timeout 180`. This also applies the dashboard mounts when the lab is already running. Open the [OTel4D Delphi Demo dashboard](http://127.0.0.1:3000/d/otel4d-delphi-demo/otel4d-delphi-demo). If you changed `GRAFANA_PORT`, use that port in the URL. The dashboard is provisioned as the lab's default home and uses the bundled Prometheus, Tempo, and Loki data sources.
+Open the [OTel4D Delphi Demo dashboard](http://127.0.0.1:3000/d/otel4d-delphi-demo/otel4d-delphi-demo) after Compose reports the stack healthy. If you changed `GRAFANA_PORT`, use that port in the URL. The dashboard is provisioned as the lab's default home and uses the bundled Prometheus, Tempo, and Loki data sources.
 
 In the [Delphi VCL telemetry demo](../../examples/TelemetryDemo/README.md), select a scenario, click **Run scenario**, and wait for the Collector acknowledgement. With **Last 15 minutes** selected, refresh the dashboard to see the run count, mean duration and inventory adjustment by scenario, plus the traces and logs. The dashboard filters for `otel4d-delphi-demo`. The Compose smoke test uses `dac-otel-smoke` and is verified separately below.
 
