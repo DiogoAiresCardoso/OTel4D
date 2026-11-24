@@ -1,0 +1,6 @@
+**
+!Dockerfile
+!grafana/
+!grafana/provisioning.yaml
+!grafana/dashboards/
+!grafana/dashboards/otel4d-delphi-demo.json
