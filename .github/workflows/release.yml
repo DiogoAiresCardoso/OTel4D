@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      commit: ${{ steps.tag.outputs.commit }}
       tag-object: ${{ steps.tag.outputs.tag_object }}
       draft: ${{ steps.tag.outputs.draft }}
     steps:
@@ -53,60 +52,21 @@ jobs:
           if grep -Fxq 'License decision pending' LICENSE; then
             draft=true
           fi
-          printf 'commit=%s\ntag_object=%s\ndraft=%s\n' "$commit" "$tag_object" "$draft" >> "$GITHUB_OUTPUT"
+          printf 'tag_object=%s\ndraft=%s\n' "$tag_object" "$draft" >> "$GITHUB_OUTPUT"
       - name: Run repository checks
         run: |
           python3 tools/check_project.py
           python3 -m unittest discover -s tests -p 'test_*.py'
 
-  build:
-    name: Build the Delphi Tokyo Win32 bundle
-    needs: validate
-    runs-on: [self-hosted, Windows, delphi-tokyo]
-    timeout-minutes: 25
-    steps:
-      - name: Check out the validated commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.validate.outputs.commit }}
-          persist-credentials: false
-      - name: Build the Release archive
-        shell: cmd
-        env:
-          TOKYO_ROOT: ${{ vars.DELPHI_TOKYO_ROOT || 'C:\Program Files (x86)\Embarcadero\Studio\19.0' }}
-        run: |
-          if not exist "%TOKYO_ROOT%\bin\rsvars.bat" (
-            echo ::error::Delphi 10.2 Tokyo was not found. Check DELPHI_TOKYO_ROOT on the Windows runner.
-            exit /b 1
-          )
-          call "%TOKYO_ROOT%\bin\rsvars.bat"
-          if errorlevel 1 exit /b 1
-          powershell.exe -NoProfile -NonInteractive -File tools\build-demo-bundle.ps1 -Configuration Release
-          exit /b %ERRORLEVEL%
-      - name: Upload the Windows bundle
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: otel4d-win32
-          path: dist/OTel4D-win32-Release.zip
-          if-no-files-found: error
-          compression-level: 0
-          overwrite: true
-          retention-days: 7
-
   release:
-    name: Create the GitHub Release
-    needs: [validate, build]
+    name: Create the source release
+    needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: Download the Windows bundle
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: otel4d-win32
-          path: artifacts
-      - name: Attach the archive and checksum
+      - name: Create the GitHub Release for the tag
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,45 +76,21 @@ jobs:
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
           repo="$GITHUB_REPOSITORY"
-          asset="OTel4D-$tag-win32.zip"
-          checksum="$asset.sha256"
-          marker='<!-- otel4d-release-workflow -->'
-          if [[ "$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.sha')" != "$EXPECTED_TAG_OBJECT" ]]; then
-            echo '::error::The release tag changed during the build.'
+          current_tag="$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.sha')"
+          if [[ "$current_tag" != "$EXPECTED_TAG_OBJECT" ]]; then
+            echo '::error::The release tag changed after validation.'
             exit 1
           fi
-          mv artifacts/OTel4D-win32-Release.zip "$asset"
-          sha256sum "$asset" > "$checksum"
 
           error_file="$(mktemp)"
           trap 'rm -f "$error_file"' EXIT
-          if ! release="$(gh release view "$tag" --repo "$repo" --json isDraft,body,assets 2>"$error_file")"; then
-            if ! grep -Fxq 'release not found' "$error_file"; then
-              cat "$error_file" >&2
-              exit 1
-            fi
-            gh release create "$tag" --repo "$repo" --verify-tag --draft \
-              --title "OTel4D $tag" --notes "$marker" --generate-notes
-            release="$(gh release view "$tag" --repo "$repo" --json isDraft,body,assets)"
+          if gh release view "$tag" --repo "$repo" --json tagName > /dev/null 2>"$error_file"; then
+            echo 'The GitHub Release for this tag already exists.'
+            exit 0
           fi
-
-          if [[ "$(jq -r '.isDraft' <<< "$release")" == false ]]; then
-            if jq -e --arg zip "$asset" --arg sha "$checksum" \
-              '([.assets[].name] | (index($zip) != null and index($sha) != null))' <<< "$release" > /dev/null; then
-              echo 'The release already contains the Win32 bundle and checksum.'
-              exit 0
-            fi
-            echo '::error::This version already has a published release with different assets.'
+          if ! grep -Fxq 'release not found' "$error_file"; then
+            cat "$error_file" >&2
             exit 1
           fi
-          if ! jq -e --arg marker "$marker" '.body | contains($marker)' <<< "$release" > /dev/null; then
-            echo '::error::This version already has a draft managed outside this workflow.'
-            exit 1
-          fi
-
-          gh release upload "$tag" "$asset" "$checksum" --repo "$repo" --clobber
-          if [[ "$KEEP_DRAFT" == false ]]; then
-            gh release edit "$tag" --repo "$repo" --draft=false
-          else
-            echo 'License decision pending. The packaged release is available as a draft.'
-          fi
+          gh release create "$tag" --repo "$repo" --verify-tag --title "OTel4D $tag" \
+            --generate-notes --draft="$KEEP_DRAFT"
