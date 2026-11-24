@@ -10,8 +10,10 @@
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Application</AppType>
         <DCC_ConsoleTarget>false</DCC_ConsoleTarget>
-        <DCC_UnitSearchPath>..\..\source\controller;..\..\source\model\dto;..\..\source\model\dao;..\..\source\model\service;..\..\source\view;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
-        <DCC_ExeOutput>.\$(Platform)\$(Config)</DCC_ExeOutput>
+        <DCC_EnabledPackages>true</DCC_EnabledPackages>
+        <DCC_UsePackage>rtl;vcl;OTel4D</DCC_UsePackage>
+        <DCC_UnitSearchPath>..\..\source\$(Platform)\$(Config);$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_ExeOutput>..\..\source\$(Platform)\$(Config)</DCC_ExeOutput>
         <DCC_DcuOutput>.\$(Platform)\$(Config)</DCC_DcuOutput>
         <DCC_Namespace>System;System.Win;Winapi;Vcl;Data;Xml;$(DCC_Namespace)</DCC_Namespace>
     </PropertyGroup>

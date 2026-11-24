@@ -14,6 +14,7 @@ OTel4D sends traces, logs and metrics directly from a Delphi application to an O
 | Review the implementation milestones | [Telemetry roadmap](docs/telemetry-roadmap.md) |
 | Exercise OTLP against local storage | [Docker Compose observability lab](infra/observability/README.md) |
 | Send all three signals from a Delphi application | [VCL telemetry demo](examples/TelemetryDemo/README.md) |
+| Build or run the package and demo bundle | [OTel4D Win32 demo bundle](docs/demo-bundle.md) |
 
 ## Configure a Delphi application
 

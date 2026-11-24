@@ -15,6 +15,7 @@ __recovery/
 *.tds
 /source/Win32/
 /source/OTel4D.res
+/dist/
 
 # Python guardrail checks
 __pycache__/
