@@ -16,7 +16,7 @@ git push origin refs/tags/v0.1.0
 
 Substitute the intended version and use `origin/main` only when it points to the intended release commit. Follow **Actions → Release OTel4D**. The release page lists the generated notes and the two source downloads.
 
-While [LICENSE](../LICENSE) records `License decision pending`, the workflow creates a draft. Before publishing, the maintainer records the license and dependency notice decision in [GOVERNANCE.md](../GOVERNANCE.md). Version tags for subsequent commits with the decision recorded publish automatically. For an existing draft, use the GitHub Releases interface to review the notes and publish once the policy is satisfied.
+The workflow publishes tags for commits that include the project's [Apache License 2.0](../LICENSE). Tags for earlier commits whose `LICENSE` records `License decision pending` produce drafts. The source downloads reflect the license and notices at the tagged commit. [Project licensing](../GOVERNANCE.md#licensing)
 
 ## Recover a failed run
 
