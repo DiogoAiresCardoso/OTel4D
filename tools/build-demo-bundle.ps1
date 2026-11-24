@@ -49,7 +49,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $labSource $file) -Destination $destination
     }
     Copy-Item -LiteralPath (Join-Path $repo 'docs\demo-bundle.md') -Destination (Join-Path $bundle 'README.md')
-    Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $bundle
+    Copy-Item -LiteralPath (Join-Path $repo 'LICENSE'), (Join-Path $repo 'NOTICE') -Destination $bundle
 
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $temporaryArchive = Join-Path $staging $archiveName
