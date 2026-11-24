@@ -26,7 +26,7 @@ With plain Git, the equivalent of the last command is `git switch -c feature/pro
 
 1. Update the starting branch with `git pull --ff-only`. For a release, start from `develop` with a branch such as `release/0.1.0`. For an urgent fix to a published version, start from `main` with a branch such as `hotfix/0.1.1`.
 2. Push the branch and open a pull request into `main`. Use a merge commit to preserve the release branch history.
-3. Fetch the merged commit. Tag that exact commit with an annotated tag, for example `git tag -a v0.1.0 <merge-commit> -m "Release OTel4D 0.1.0"`, then push it with `git push origin v0.1.0`. Substitute the released version in both commands.
+3. Fetch the merged commit. Tag that exact commit with an annotated tag, for example `git tag -a v0.1.0 <merge-commit> -m "Release OTel4D 0.1.0"`, then push it with `git push origin v0.1.0`. Substitute the released version in both commands. GitHub Actions builds the Win32 bundle and prepares the release. [Runner setup and release procedure](docs/github-releases.md)
 4. Open a pull request from `main` into `develop` and merge it with a merge commit. If a hotfix shipped while a release branch was open, merge `main` into that release branch as well.
 
 ## Write for the next contributor
