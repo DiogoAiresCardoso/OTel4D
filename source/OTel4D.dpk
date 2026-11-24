@@ -1,0 +1,76 @@
+package OTel4D;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+{$RUNONLY}
+
+requires
+  rtl;
+
+contains
+  OTel.View.ProtobufResponse in 'view\OTel.View.ProtobufResponse.pas',
+  OTel.Controller.MetricWorker in 'controller\OTel.Controller.MetricWorker.pas',
+  OTel.Controller.DeliveryWorker in 'controller\OTel.Controller.DeliveryWorker.pas',
+  OTel.Transport.ResponseLimit in 'controller\OTel.Transport.ResponseLimit.pas',
+  OTel.Transport.ResponseStream in 'controller\OTel.Transport.ResponseStream.pas',
+  OTel.Model.Dto.SignalSettings in 'model\dto\OTel.Model.Dto.SignalSettings.pas',
+  OTel.Model.Dto.Options in 'model\dto\OTel.Model.Dto.Options.pas',
+  OTel.Model.Dto.ConfigurationError in 'model\dto\OTel.Model.Dto.ConfigurationError.pas',
+  OTel.Model.Dto.SpanEvent in 'model\dto\OTel.Model.Dto.SpanEvent.pas',
+  OTel.Model.Dto.MetricDefinition in 'model\dto\OTel.Model.Dto.MetricDefinition.pas',
+  OTel.Model.Service.MetricSeries in 'model\service\OTel.Model.Service.MetricSeries.pas',
+  OTel.Controller.Span in 'controller\OTel.Controller.Span.pas',
+  OTel.Controller.MetricInstrument in 'controller\OTel.Controller.MetricInstrument.pas',
+  OTel.Controller.Counter in 'controller\OTel.Controller.Counter.pas',
+  OTel.Controller.Histogram in 'controller\OTel.Controller.Histogram.pas',
+  OTel.Controller.Configuration in 'controller\OTel.Controller.Configuration.pas',
+  OTel.Model.Dto.Metric in 'model\dto\OTel.Model.Dto.Metric.pas',
+  OTel.Model.Service.MetricStore in 'model\service\OTel.Model.Service.MetricStore.pas',
+  OTel.Controller.Meter in 'controller\OTel.Controller.Meter.pas',
+  OTel.Controller.MetricReader in 'controller\OTel.Controller.MetricReader.pas',
+  OTel.View.MetricProtobuf in 'view\OTel.View.MetricProtobuf.pas',
+  OTel.Model.Dto.Telemetry in 'model\dto\OTel.Model.Dto.Telemetry.pas',
+  OTel.Model.Dto.Log in 'model\dto\OTel.Model.Dto.Log.pas',
+  OTel.Controller.Logger in 'controller\OTel.Controller.Logger.pas',
+  OTel.Controller.BatchedSignal in 'controller\OTel.Controller.BatchedSignal.pas',
+  OTel.View.LogProtobuf in 'view\OTel.View.LogProtobuf.pas',
+  OTel.View.Protobuf in 'view\OTel.View.Protobuf.pas',
+  OTel.Api in 'controller\OTel.Api.pas',
+  OTel.Model.Dto.Configuration in 'model\dto\OTel.Model.Dto.Configuration.pas',
+  OTel.Model.Dao.Environment in 'model\dao\OTel.Model.Dao.Environment.pas',
+  OTel.Model.Service.Configuration in 'model\service\OTel.Model.Service.Configuration.pas',
+  OTel.View.TraceEndpoint in 'view\OTel.View.TraceEndpoint.pas',
+  OTel.Controller.SpanQueue in 'controller\OTel.Controller.SpanQueue.pas',
+  OTel.Controller.Trace in 'controller\OTel.Controller.Trace.pas',
+  OTel.Controller.TraceClient in 'controller\OTel.Controller.TraceClient.pas',
+  OTel.Transport.Http in 'controller\OTel.Transport.Http.pas',
+  OTel.Model.Dto.Span in 'model\dto\OTel.Model.Dto.Span.pas',
+  OTel.Model.Service.TraceContext in 'model\service\OTel.Model.Service.TraceContext.pas',
+  OTel.View.TraceProtobuf in 'view\OTel.View.TraceProtobuf.pas';
+
+end.

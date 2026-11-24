@@ -1,0 +1,31 @@
+name: otel-local-test
+
+services:
+  lgtm:
+    build: .
+    restart: "no"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${OTLP_GRPC_PORT:-4317}:4317"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
+    volumes:
+      - telemetry-data:/data
+
+  smoke:
+    image: python:3.13-alpine
+    profiles: [test]
+    depends_on:
+      lgtm:
+        condition: service_healthy
+    environment:
+      OTLP_ENDPOINT: http://lgtm:4318
+      GRAFANA_ENDPOINT: http://lgtm:3000
+      OTEL_SERVICE_NAME: dac-otel-smoke
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./tests:/tests:ro
+    entrypoint: ["python", "/tests/smoke.py"]
+    command: []
+
+volumes:
+  telemetry-data:

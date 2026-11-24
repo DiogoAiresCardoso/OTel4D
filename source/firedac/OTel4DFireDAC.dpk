@@ -1,0 +1,21 @@
+package OTel4DFireDAC;
+
+{$RUNONLY}
+{$DESCRIPTION 'OTel4D FireDAC instrumentation'}
+
+requires
+  rtl,
+  dbrtl,
+  FireDAC,
+  FireDACCommon,
+  FireDACCommonDriver,
+  OTel4D;
+
+contains
+  OTel.Instrumentation.FireDAC.Binding in 'OTel.Instrumentation.FireDAC.Binding.pas',
+  OTel.Instrumentation.FireDAC.Operation in 'OTel.Instrumentation.FireDAC.Operation.pas',
+  OTel.Instrumentation.FireDAC.Query in 'OTel.Instrumentation.FireDAC.Query.pas',
+  OTel.Instrumentation.FireDAC.StoredProc in 'OTel.Instrumentation.FireDAC.StoredProc.pas',
+  OTel.Instrumentation.FireDAC in 'OTel.Instrumentation.FireDAC.pas';
+
+end.

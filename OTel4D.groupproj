@@ -1,0 +1,20 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Make">
+    <PropertyGroup>
+        <ProjectGuid>{7642D5D6-608F-4E4E-8A65-5540AEAE2686}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="source\OTel4D.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="examples\TelemetryDemo\TelemetryDemo.dproj">
+            <Dependencies>source\OTel4D.dproj</Dependencies>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets"/>
+</Project>
