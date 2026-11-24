@@ -4,7 +4,7 @@ program ConfigurationSmoke;
 
 uses
   System.SysUtils,
-  Winapi.Windows,
+  OTel.Application.Ports, Winapi.Windows,
   OTel.Api,
   OTel.Model.Dao.Environment,
   OTel.Model.Service.Configuration,
@@ -18,6 +18,7 @@ type
     class procedure CheckValues(const Options: TOTelOptions; const Service, Endpoint: string); static;
     class procedure CheckOverrides; static;
     class procedure CheckDeliverySettings; static;
+    class procedure CheckProgrammaticSignals; static;
     class procedure CheckInvalidEndpoint(const Endpoint: string); static;
     class procedure CheckRequiredOptions; static;
   public
@@ -76,21 +77,28 @@ begin
 end;
 
 class procedure TConfigurationSmoke.CheckRequiredOptions;
+var
+  Source: IOTelConfigurationSource;
+  Policy: IOTelConfigurationPolicy;
+  Endpoint: IOTelEndpointResolver;
 begin
+  Source := TEnvironmentDao.Create;
+  Policy := TConfigurationService.Create;
+  Endpoint := TTraceEndpointView.Create;
   try
-    TEnvironmentDao.ReadInto(nil);
+    Source.ReadInto(nil);
     raise Exception.Create('The DAO accepted a missing destination object.');
   except
     on EArgumentNilException do ; // Expected for a required argument.
   end;
   try
-    TConfigurationService.ApplyOverridesAndDefaults(nil, nil);
+    Policy.ApplyOverridesAndDefaults(nil, nil);
     raise Exception.Create('The service accepted a missing destination object.');
   except
     on EArgumentNilException do ;
   end;
   try
-    TTraceEndpointView.Render(nil);
+    Endpoint.Render(nil);
     raise Exception.Create('The view accepted a missing options object.');
   except
     on EArgumentNilException do ;
@@ -174,6 +182,58 @@ begin
   end;
 end;
 
+class procedure TConfigurationSmoke.CheckProgrammaticSignals;
+var
+  Options: TOTelOptions;
+  Snapshot: TOTelConfiguration;
+  Client: TOTelTraceClient;
+  Invalid: Boolean;
+begin
+  SetVariable('OTEL_LOGS_EXPORTER', 'otlp');
+  SetVariable('OTEL_METRICS_EXPORTER', 'otlp');
+  SetVariable('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT', 'http://receiver.example/old');
+  Options := TOTelOptions.Create;
+  try
+    Options.SdkDisabled := False;
+    Options.Endpoint := 'http://receiver.example/common';
+    Options.Logs.BaseEndpoint := 'http://receiver.example/isolated';
+    Options.Logs.Exporter := 'none';
+    Options.Metrics.Exporter := 'none';
+    Snapshot := TOTelConfigurationController.LoadConfiguration(Options);
+    try
+      Check(Snapshot.Additional.Logs.Exporter = 'none', 'Direct log exporter override was ignored.');
+      Check(Snapshot.Additional.Metrics.Exporter = 'none', 'Direct metric exporter override was ignored.');
+      Check(Snapshot.Additional.Logs.BaseEndpoint = Options.Logs.BaseEndpoint, 'Direct log base URL was ignored.');
+      Check(Snapshot.Additional.Logs.Endpoint = '', 'Explicit log base did not replace an older exact URL.');
+    finally
+      Snapshot.Free;
+    end;
+
+    Options.LogsProtocol := 'invalid';
+    Options.MetricsProtocol := 'invalid';
+    Client := TOTel.Open(Options);
+    try
+      Check(Client.Shutdown(1000), 'Disabled signals should bypass their invalid settings.');
+    finally
+      Client.Free;
+    end;
+
+    Options.Metrics.Exporter := 'otlp';
+    Invalid := False;
+    try
+      TOTel.Open(Options).Free;
+    except
+      on EOTelConfiguration do Invalid := True;
+    end;
+    Check(Invalid, 'Invalid active metric protocol should raise at startup.');
+  finally
+    Options.Free;
+    SetVariable('OTEL_LOGS_EXPORTER', '');
+    SetVariable('OTEL_METRICS_EXPORTER', '');
+    SetVariable('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT', '');
+  end;
+end;
+
 class procedure TConfigurationSmoke.Run;
 var
   Initial: TOTelConfiguration;
@@ -217,6 +277,7 @@ begin
   CheckInvalidEndpoint('http://receiver.example/?private-value=%ZZ');
   CheckInvalidEndpoint('http://receiver.example/' + #13 + #10);
   CheckDeliverySettings;
+  CheckProgrammaticSignals;
 end;
 
 begin

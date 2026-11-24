@@ -6,9 +6,10 @@ uses
   System.Classes, FireDAC.Comp.Client, OTel.Instrumentation.FireDAC.Binding;
 
 type
-  TFDOtelQuery = class(TFDQuery)
+  TFDOtelQuery = class(TFDQuery, IOTelFireDACDataSet)
   strict private
     FInstrumentation: TOTelFireDACInstrumentation;
+    function GetInstrumentation: TOTelFireDACInstrumentation;
     procedure SetInstrumentation(Value: TOTelFireDACInstrumentation);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
@@ -16,13 +17,18 @@ type
   public
     procedure Execute(ATimes: Integer = 0; AOffset: Integer = 0); override;
   published
-    property Instrumentation: TOTelFireDACInstrumentation read FInstrumentation write SetInstrumentation;
+    property Instrumentation: TOTelFireDACInstrumentation read GetInstrumentation write SetInstrumentation;
   end;
 
 implementation
 
 uses
-  System.SysUtils, OTel.Instrumentation.FireDAC.Operation;
+  System.SysUtils, OTel.Instrumentation.Database.Contracts;
+
+function TFDOtelQuery.GetInstrumentation: TOTelFireDACInstrumentation;
+begin
+  Result := FInstrumentation;
+end;
 
 procedure TFDOtelQuery.SetInstrumentation(Value: TOTelFireDACInstrumentation);
 begin
@@ -40,9 +46,11 @@ end;
 
 procedure TFDOtelQuery.OpenCursor(InfoQuery: Boolean);
 var
-  Operation: TDatabaseOperation;
+  Operation: IOTelDatabaseOperation;
 begin
-  Operation := TDatabaseOperation.Start(FInstrumentation, Self, 'OPEN', InfoQuery or (DataSetField <> nil) or LoadFromFileAtOpen);
+  if Assigned(FInstrumentation) then
+    Operation := FInstrumentation.BeginOperation(Self, 'OPEN',
+      InfoQuery or (DataSetField <> nil) or LoadFromFileAtOpen);
   try
     try
       inherited OpenCursor(InfoQuery);
@@ -54,15 +62,16 @@ begin
       end;
     end;
   finally
-    Operation.Free;
+    if Assigned(Operation) then Operation.Finish;
   end;
 end;
 
 procedure TFDOtelQuery.Execute(ATimes, AOffset: Integer);
 var
-  Operation: TDatabaseOperation;
+  Operation: IOTelDatabaseOperation;
 begin
-  Operation := TDatabaseOperation.Start(FInstrumentation, Self, 'EXECUTE', False);
+  if Assigned(FInstrumentation) then
+    Operation := FInstrumentation.BeginOperation(Self, 'EXECUTE', False);
   try
     try
       inherited Execute(ATimes, AOffset);
@@ -74,7 +83,7 @@ begin
       end;
     end;
   finally
-    Operation.Free;
+    if Assigned(Operation) then Operation.Finish;
   end;
 end;
 

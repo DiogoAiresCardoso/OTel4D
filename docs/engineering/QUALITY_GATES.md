@@ -2,7 +2,7 @@
 
 Run `python tools/check_project.py` and `python -m unittest discover -s tests -p "test_*.py"` from the repository root with Python 3.11 or newer. On Windows, `py -3.11` or the full path to a suitable interpreter also works. These commands use only the standard library. The GitHub Actions job **Repository checks** runs the same commands on PRs targeting develop and main, and on pushes to those branches.
 
-The repository gate checks the required policy files, local Markdown file references, skill metadata, agent TOML, the 28 guardrail identifiers, selected tracked secret patterns, generated IDE artifacts, forbidden Delphi Model imports and the one-class-per-unit rule. It checks common source patterns conservatively. Review conditional compilation, the full dependency graph and wire compatibility separately.
+The repository gate checks the required policy files, local Markdown file references, skill metadata, agent TOML, the 28 guardrail identifiers, selected tracked secret patterns, generated IDE artifacts, forbidden Delphi Model imports, inward domain and application dependencies, matching DPK and DPROJ unit lists, and the one-class-per-unit rule. It checks common source patterns conservatively. Review conditional compilation, the full dependency graph and wire compatibility separately.
 
 | Criterion | Acceptance evidence |
 | --- | --- |

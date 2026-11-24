@@ -1,20 +1,20 @@
-# Operate and verify Delphi trace delivery
+# Operate and verify OTel4D delivery
 
 ## What a successful export means
 
-The worker sends an HTTP POST with `Content-Type: application/x-protobuf` and `Accept: application/x-protobuf`. The body is one binary `ExportTraceServiceRequest`. It accepts a successful OTLP acknowledgement from the receiver. Indexing, retention and availability in a backend UI depend on the receiver's downstream pipeline. The Collector's `debug` exporter is useful for independently seeing what reached it. [OTLP/HTTP specification](https://opentelemetry.io/docs/specs/otlp/#otlphttp) · [Local Collector example](../examples/collector.yaml)
+The worker sends an HTTP POST with `Content-Type: application/x-protobuf` and `Accept: application/x-protobuf`. The body is a binary trace, log, or metric export request. It accepts a successful OTLP acknowledgement from the receiver. Indexing, retention and availability in a backend UI depend on the receiver's downstream pipeline. The Collector's `debug` exporter is useful for independently seeing what reached it. [OTLP/HTTP specification](https://opentelemetry.io/docs/specs/otlp/#otlphttp) · [Local Collector example](../examples/collector.yaml)
 
 | Receiver outcome | OTel4D behavior |
 | --- | --- |
 | HTTP 200 with a valid empty export response | Confirms the entire batch. An empty Protobuf message can be zero bytes. |
-| HTTP 200, partial success | Counts the receiver's `rejected_spans`. Retains a warning count when `error_message` is nonempty. A warning with zero rejected spans still confirms delivery. Completes the attempt without resending accepted spans. |
+| HTTP 200, partial success | Counts the receiver's rejected spans, log records, or metric points. Retains a warning count when `error_message` is nonempty. A warning with zero rejected items still confirms delivery. Completes the attempt without resending accepted items. |
 | HTTP 429, 502, 503 or 504 | Retries the same payload within the batch budget. Uses exponential backoff and jitter, starting at 200 ms, and honors a longer valid `Retry-After` in seconds or HTTP-date format. |
 | Connection failure | Retries transient network exceptions within the same budget. A response lost after acceptance can cause a duplicate on retry. |
 | Untrusted TLS certificate | Ends the batch as unconfirmed. Configure trust in the application's Windows environment. |
-| Other HTTP status, including 3xx and 400 | Ends the batch as unconfirmed. The transport does not follow redirects with application credentials. |
+| Other HTTP status, including 3xx, 400, 401 and 403 | Ends the batch as unconfirmed. The transport does not follow redirects with application credentials. |
 | Invalid acknowledgement | Malformed Protobuf, a rejection count outside the batch, a response larger than 4 MiB or an incompatible media type leaves the batch unconfirmed. A nonempty body requires the Protobuf media type. |
 
-The worker has a shared budget for a batch's attempts and waits. Individual connection and response timeout settings use up to 3,000 ms each or the remaining budget, whichever is smaller. Platform DNS, TLS and in-progress I/O can affect elapsed wall time. The response parser counts warnings without publishing arbitrary receiver text. [Transport implementation](../source/controller/OTel.Transport.Http.pas)
+The worker has a shared budget for a batch's attempts and waits. The OTLP adapter splits payloads over 4 MiB into ordered requests within that batch budget. An individual item that exceeds the limit is rejected locally. Individual connection and response timeout settings use up to 3,000 ms each or the remaining budget, whichever is smaller. Platform DNS, TLS and in-progress I/O can affect elapsed wall time. The response parser counts warnings without publishing arbitrary receiver text. [Transport implementation](../source/adapters/otlp/OTel.Transport.Http.pas)
 
 ## Limits and counters
 
@@ -26,13 +26,16 @@ The worker has a shared budget for a batch's attempts and waits. Individual conn
 | Names and descriptions | Scope name, span name, event name and exception type use up to 256 UTF-16 units. Scope version uses 128, error descriptions and opt-in exception messages use 1,024. Empty span names become `unnamed`. |
 | W3C state | The implementation accepts up to 512 characters and 32 unique state entries. An invalid state is omitted. |
 
-Three cumulative client counters are accessible through `OTel.Api`. Read them before freeing the client.
+Read each signal's cumulative counters through `OTel.Api` before freeing the client. Logs have a separate queue with the same 2,048-record and 128-item batch limits as traces. Metrics export in chunks of up to 128 points within the encoded byte limit and keep their cumulative aggregation after failed requests. [Logs and metrics limits](telemetry.md)
 
 | Counter | Interpretation |
 | --- | --- |
 | `DroppedSpans` | Finished recording spans that could not enter the queue, including spans finished after intake closed. Unsampled and disabled operations produce no recording and do not increment this counter. |
 | `RejectedSpans` | Spans the receiver explicitly rejected **plus** spans for which delivery could not be confirmed. A terminal error for a batch of ten adds ten even if the receiver's final state is unknown. |
 | `DeliveryWarnings` | Increments once for each response carrying a nonempty OTLP partial-success message, regardless of the batch size. |
+| `DroppedLogs`, `RejectedLogs`, `LogDeliveryWarnings` | Corresponding counts for log capture and delivery. |
+| `RejectedMetricPoints`, `MetricDeliveryWarnings` | Unconfirmed OTLP points and warning responses. A cumulative point may appear in more than one request. |
+| `InvalidMetricMeasurements` | Invalid or overflowing measurement inputs discarded locally. This diagnostic is separate from the delivery Boolean. |
 
 ## Flush and shutdown
 
@@ -41,15 +44,16 @@ Three cumulative client counters are accessible through `OTel.Api`. Read them be
 3. At process shutdown, stop new work, join producer threads, finish their spans and call `Shutdown(TimeoutMs)`. It closes intake, wakes the worker, and waits for pending batches. A tracer retained afterward yields nonrecording spans.
 4. If shutdown times out, the worker can continue while the client is alive. A later call can wait again. Free the client once its lifetime is over. Destruction requests cancellation and joins the worker, so an active OS network call can extend the time spent in `Free`. Freeing after a timeout can abandon pending delivery.
 
-Both calls return `False` on a wait timeout or when any drop or rejection has occurred during that client's lifetime. A later successful drain can resolve a timeout. Loss counters persist for the life of the client, so a later drain cannot turn a previous loss into a clean result. A warning alone keeps the Boolean result successful. Zero is a nonblocking check for these wait methods. It has different meaning from a zero exporter timeout in configuration. Crashes or forced termination lose any remaining in-memory spans.
+Both calls return `False` on a wait timeout or when any drop or rejection has occurred during that client's lifetime. A later successful drain can resolve a timeout. Loss counters persist for the life of the client, so a later drain cannot turn a previous loss into a clean result. A warning alone keeps the Boolean result successful. Zero is a nonblocking check for these wait methods. It has different meaning from a zero exporter timeout in configuration. Crashes or forced termination lose pending in-memory telemetry.
 
 ## Troubleshooting
 
 | Symptom | What to inspect |
 | --- | --- |
-| `TOTel.Open` raises `EOTelConfiguration` | Check code overrides, then the trace-specific and generic environment variables. Check URL syntax, protocol and encoded header names/values. An explicit configuration preview still validates the destination. |
+| `TOTel.Open` raises `EOTelConfiguration` | Check code overrides, then the trace-specific and generic environment variables. Check URL syntax, protocol and encoded header names and values. A configuration preview validates the trace URL. Trace headers are validated at client open, and log and metric export settings are checked when first used. |
 | No spans and all counters are zero | Verify `OTEL_SDK_DISABLED`, the incoming sampled flag, `IsRecording` and whether the code finishes its spans. Check the actual service name, backend time range and Collector pipeline. |
 | Rejections with HTTP 404 or 415 in receiver diagnostics | Compare the resolved destination against the receiver route and confirm it accepts binary OTLP/HTTP. A common mistake is setting a trace-specific URL to the base path. Port 4318 is the conventional HTTP listener. |
+| Receiver reports HTTP 401 or 403 | Check that the exporter sends the scheme and token the receiver requires. Values like `Authorization=Bearer%20TOKEN` supply the encoded space. A signal-specific setting replaces the whole generic header list. Check the receiver's credential scope or expiry. |
 | Unconfirmed batches on HTTPS | Check the receiver certificate chain, hostname, proxy and credentials from the same Windows identity running the host. A Windows service can have different trust or proxy settings from an interactive user. |
 | Drops with a slow receiver | Check queue pressure and receiver latency. Reduce high-frequency instrumentation or increase receiver throughput. A longer shutdown wait cannot recover spans already dropped at capture. |
 | Child appears as a separate trace | Check incoming headers, activate the parent around the child, and pass a copy of the context across thread or task boundaries. |
@@ -88,3 +92,27 @@ If Firebird reports a lock conflict with another Windows session, rerun the suit
 | FireDAC and official Collector | Two concurrent SQLite connections preserve query results and application errors. The Firebird fixture verifies a stored procedure. The official Collector receives a business log, database child spans and a duration histogram. The runtime fixture streams the migrated DFM. [Verifier](../tests/verify_firedac.py) |
 
 **Additional verification during implementation.** On Tokyo Win32, an independent run exercised a source-linked application and a runtime-package consumer against the official Collector 0.165.0. In a separate slow-receiver run with eight producing threads and 4,096 finished spans, 2,176 unique spans reached the receiver and 1,920 were reported dropped. The sum accounted for all submissions. The split depends on receiver throughput and scheduling. Tests also exercised shutdown deadlines, thread-local parent restoration, a retained tracer after client destruction and untrusted TLS. These observations concern Win32 and local receivers. Production latency, backend retention and other targets require validation in the deployment environment.
+
+### Hexagonal migration verification
+
+The migration validation used Delphi 10.2 Tokyo Win32 (compiler 32.0), the repository's Docker Compose lab and independent OTLP Protobuf bindings. Reproduce with the commands above and the [demo verification runner](../examples/TelemetryDemo/README.md#verify-all-four-scenarios).
+
+| Check | Result |
+| --- | --- |
+| Repository gates | 17 tests, including dependency direction in both `uses` clauses and DPK/DPROJ unit parity. |
+| Packages | Core, FireDAC and IDE packages compiled in Debug and Release. The VCL demo compiled in Release. |
+| Delphi consumer and loopback | Configuration passed. The 7 trace and 9 log and metric scenarios passed. A valid large batch delivered all 128 spans in order within the 4 MiB request limit. |
+| FireDAC | Four scenarios passed, including SQLite with DFM streaming and preserved database exceptions, embedded Firebird and an official OpenTelemetry Collector. |
+| Direct-source example | A temporary synthetic Bearer token was confirmed on all three routes. The official decoder verified four correlated span/log pairs and cumulative counter readings of 3, 6 and 8. |
+| Grafana lab | The JSON smoke test verified three ingests and the Tempo, Loki and Prometheus data sources. The Release demo session then exercised all four scenarios over binary OTLP/HTTP. |
+
+The demo verifier checked one run and one duration observation per scenario. The observed Loki log counts and signed inventory adjustments were as follows.
+
+| Scenario | Correlated logs | Inventory adjustment |
+| --- | ---: | ---: |
+| Successful order | 4 | −3 |
+| Recovered retry | 5 | +3 |
+| Rejected order | 3 | 0 |
+| Dependency unavailable | 3 | 0 |
+
+This evidence covers local Docker and Tokyo Win32. The console runner drives the same scenario and session code as the VCL form. Interactive form execution and visual inspection in Chrome were unavailable during this run. ADO, ODAC, Win64, production backend behavior and Delphi coverage or complexity percentages require separate evidence.

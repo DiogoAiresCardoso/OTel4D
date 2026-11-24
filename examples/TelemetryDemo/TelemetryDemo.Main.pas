@@ -28,7 +28,7 @@ type
     procedure SendButtonClick(Sender: TObject);
     procedure CompletionTimerTimer(Sender: TObject);
   strict private
-    FSession: TDemoTelemetrySession;
+    FSession: IDemoTelemetrySession;
     FSendThread: TDemoSendThread;
     FClosePending: Boolean;
     procedure SetSending(Sending: Boolean);
@@ -55,7 +55,7 @@ begin
   Port := Trim(GetEnvironmentVariable('OTLP_HTTP_PORT'));
   if Port <> '' then PortEdit.Text := Port;
   for Scenario := Low(TDemoScenario) to High(TDemoScenario) do
-    ScenarioCombo.Items.Add(TDemoTelemetrySession.ScenarioCaption(Scenario));
+    ScenarioCombo.Items.Add(FSession.ScenarioCaption(Scenario));
   ScenarioCombo.ItemIndex := Ord(dsSuccess);
 end;
 
@@ -63,7 +63,7 @@ destructor TTelemetryDemoForm.Destroy;
 begin
   if Assigned(CompletionTimer) then CompletionTimer.Enabled := False;
   FSendThread.Free;
-  FSession.Free;
+  FSession := nil;
   inherited;
 end;
 

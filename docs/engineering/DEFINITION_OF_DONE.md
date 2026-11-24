@@ -6,7 +6,7 @@ For each applicable item, record evidence. Explain omissions and mark unavailabl
 - [ ] Engineering principles and domain invariants hold.
 - [ ] Existing components were searched and the reuse decision recorded.
 - [ ] Duplicate rules and unnecessary abstractions were considered.
-- [ ] MVC boundaries and project conventions are preserved.
+- [ ] Ports-and-adapters boundaries and project conventions are preserved.
 - [ ] Public, wire and versioned contracts remain compatible or the break was authorized.
 - [ ] Invalid inputs, failures, concurrency and cleanup were exercised where relevant.
 - [ ] Security, privacy, secrets and licensing were reviewed.

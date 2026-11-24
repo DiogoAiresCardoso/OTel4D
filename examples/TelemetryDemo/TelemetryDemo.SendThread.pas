@@ -8,14 +8,14 @@ uses
 type
   TDemoSendThread = class(TThread)
   strict private
-    FSession: TDemoTelemetrySession;
+    FSession: IDemoTelemetrySession;
     FPort: Integer;
     FScenario: TDemoScenario;
     FTraceId, FSpanId, FErrorMessage: string;
   protected
     procedure Execute; override;
   public
-    constructor Create(Session: TDemoTelemetrySession; Port: Integer; Scenario: TDemoScenario);
+    constructor Create(Session: IDemoTelemetrySession; Port: Integer; Scenario: TDemoScenario);
     property TraceId: string read FTraceId;
     property SpanId: string read FSpanId;
     property ErrorMessage: string read FErrorMessage;
@@ -26,7 +26,7 @@ implementation
 uses
   System.SysUtils;
 
-constructor TDemoSendThread.Create(Session: TDemoTelemetrySession; Port: Integer; Scenario: TDemoScenario);
+constructor TDemoSendThread.Create(Session: IDemoTelemetrySession; Port: Integer; Scenario: TDemoScenario);
 begin
   inherited Create(True);
   FSession := Session;

@@ -8,17 +8,26 @@ uses
   System.Classes, OTel.Instrumentation.FireDAC;
 
 type
-  TFireDACComponentRegistration = class
-  public
-    class procedure Install; static;
+  IFireDACComponentRegistration = interface
+    procedure Install;
   end;
 
-class procedure TFireDACComponentRegistration.Install;
+  TFireDACComponentRegistration = class(TInterfacedObject, IFireDACComponentRegistration)
+  public
+    procedure Install;
+  end;
+
+procedure TFireDACComponentRegistration.Install;
 begin
   RegisterComponents('OTel4D', [TOTelFireDACInstrumentation, TFDOtelQuery, TFDOtelStoredProc]);
 end;
 
+var
+  Registration: IFireDACComponentRegistration;
+
 initialization
-  TFireDACComponentRegistration.Install;
+  Registration := TFireDACComponentRegistration.Create;
+  Registration.Install;
+  Registration := nil;
 
 end.

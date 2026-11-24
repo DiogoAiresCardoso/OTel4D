@@ -8,7 +8,12 @@ uses
 type
   TDemoScenario = (dsSuccess, dsRetry, dsRejected, dsUnavailable);
 
-  TDemoTelemetrySession = class
+  IDemoTelemetrySession = interface
+    function ScenarioCaption(Scenario: TDemoScenario): string;
+    procedure SendSample(Port: Integer; Scenario: TDemoScenario; out TraceId, SpanId: string);
+  end;
+
+  TDemoTelemetrySession = class(TInterfacedObject, IDemoTelemetrySession)
   strict private
     FClient: TOTelTraceClient;
     FTracer: TOTelTracer;
@@ -27,7 +32,7 @@ type
     procedure CheckDelivery;
   public
     destructor Destroy; override;
-    class function ScenarioCaption(Scenario: TDemoScenario): string; static;
+    function ScenarioCaption(Scenario: TDemoScenario): string;
     procedure SendSample(Port: Integer; Scenario: TDemoScenario; out TraceId, SpanId: string);
   end;
 
@@ -49,7 +54,7 @@ const
   InventoryReserve = 'demo.inventory.reserve';
   InventoryRestock = 'demo.inventory.restock';
 
-class function TDemoTelemetrySession.ScenarioCaption(Scenario: TDemoScenario): string;
+function TDemoTelemetrySession.ScenarioCaption(Scenario: TDemoScenario): string;
 const
   Captions: array[TDemoScenario] of string = ('Successful order', 'Recovered retry',
     'Rejected order', 'Dependency unavailable');

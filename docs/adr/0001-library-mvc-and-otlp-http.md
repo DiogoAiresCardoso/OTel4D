@@ -1,6 +1,6 @@
 # ADR 0001 — Keep MVC inside the library and send OTLP directly over HTTP
 
-**Status.** Accepted. Manual tracing and direct OTLP/HTTP Protobuf delivery are implemented for Delphi 10.2 Tokyo Win32. The first runtime was exercised against the official OpenTelemetry Collector. [Implementation and coverage](../implementation.md) · [Verification](../operations.md#verification)
+**Status.** The MVC boundaries were superseded by [ADR 0003](0003-hexagonal-telemetry.md). Direct OTLP/HTTP remains accepted. Manual tracing and direct OTLP/HTTP Protobuf delivery are implemented for Delphi 10.2 Tokyo Win32. The first runtime was exercised against the official OpenTelemetry Collector. [Implementation and coverage](../implementation.md) · [Verification](../operations.md#verification)
 
 **Context.** Delphi desktop, console and service applications need one client API. The consumer chooses the service identity, endpoint and authentication. The owner selected MVC for the library itself.
 

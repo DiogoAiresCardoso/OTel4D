@@ -1,34 +1,84 @@
 # Integrate OTel4D into a Delphi application
 
+## Configure the client in Delphi
+
+Add `OTel.Api` to the host unit. Run this fragment in your application's startup code, where `FClient` is a `TOTelTraceClient` field and `Options` is a local `TOTelOptions` variable. The application owns the returned client. The options can be freed immediately after `Open`.
+
+```pascal
+Options := TOTelOptions.Create;
+try
+  Options.ServiceName := 'billing';
+  Options.Endpoint := 'https://collector.example/otel';
+  Options.SdkDisabled := False;
+  Options.TraceProtocol := 'http/protobuf';
+  Options.LogsProtocol := 'http/protobuf';
+  Options.MetricsProtocol := 'http/protobuf';
+  Options.TraceTimeoutMs := 5000;
+  Options.LogsTimeoutMs := 5000;
+  Options.MetricsTimeoutMs := 5000;
+  Options.MetricsIntervalMs := 60000;
+  FClient := TOTel.Open(Options);
+finally
+  Options.Free;
+end;
+```
+
+In a VCL app, hold the client on the application or a long-lived data module and create it before starting producers. In a service, create it during startup and reuse it across requests. Obtain a tracer, logger, or meter through that client. On shutdown, stop and join producers, release instrumentation handles, call `FClient.Shutdown(10000)`, and free the client. [Complete startup, capture, and shutdown example](../examples/ConfiguredTelemetry.dpr) · [Delivery lifecycle](operations.md#flush-and-shutdown)
+
+### Configure Bearer authentication in Delphi
+
+With an HTTPS receiver, read the raw ingestion token from the host's secret configuration. Assign the complete export headers before calling `TOTel.Open(Options)`. The header parser decodes `%20` into the space after `Bearer`.
+
+```pascal
+Authorization := 'Authorization=Bearer%20' + IngestionToken;
+Options.TraceHeaders := Authorization;
+Options.LogsHeaders := Authorization;
+Options.MetricsHeaders := Authorization;
+```
+
+Provide the full list of headers for each signal when routing or credentials differ. Change credentials by draining the old client and opening a new client with the updated settings. [OTLP exporter configuration](https://opentelemetry.io/docs/specs/otel/protocol/exporter/)
+
+### Use an exact endpoint for a signal
+
+Keep `Endpoint` as the common base and assign the exact URLs only where the receiver needs custom routes.
+
+```pascal
+Options.Endpoint := 'https://collector.example/otel';
+Options.TracesEndpoint := 'https://traces.example/custom/ingest';
+Options.LogsEndpoint := 'https://logs.example/ingest';
+```
+
+The trace and log URLs are used as supplied. Metrics go to `https://collector.example/otel/v1/metrics`. The VCL demo targets the loopback lab and configures the port in `TDemoTelemetrySession.OpenClient`. [Demo client construction](../examples/TelemetryDemo/TelemetryDemo.Session.pas)
+
 ## Run the local example
 
-Use Windows, a licensed Delphi 10.2 Tokyo installation with Win32 and an OpenTelemetry Collector distribution containing the `otlp` receiver and `debug` exporter. The example runs on loopback and emits synthetic invoice data. A remote observability account is unnecessary. [Collector installation](https://opentelemetry.io/docs/collector/installation/) · [Collector configuration](https://opentelemetry.io/docs/collector/configuration/)
+Use Windows, Delphi 10.2 Tokyo Win32, and an OpenTelemetry Collector distribution with the OTLP receiver and debug exporter. The example configures the service and receiver in Delphi and sends synthetic traces, logs, and metrics. [Collector installation](https://opentelemetry.io/docs/collector/installation/) · [Collector configuration file](../examples/collector.yaml)
 
-1. From the repository root, start the Collector in one Command Prompt. The supplied configuration binds the OTLP/HTTP receiver to `127.0.0.1:4318` and writes decoded spans to the terminal. Keep this terminal open. [Collector configuration file](../examples/collector.yaml)
+1. From the repository root, start the Collector in one Command Prompt.
 
    ```bat
    otelcol.exe --config=examples\collector.yaml
    ```
 
-2. In a separate RAD Studio 10.2 Command Prompt, also at the repository root, build the runtime package. Compile the example against it in the package output directory so Windows can find its BPL. [Complete example source](../examples/FirstTrace.dpr)
+2. In a separate RAD Studio 10.2 Command Prompt, build the runtime package and the console example.
 
    ```bat
    msbuild source\OTel4D.dproj /t:Build /p:Config=Debug /p:Platform=Win32
    pushd source\Win32\Debug
-   dcc32 -B -Q -LUrtl;OTel4D -U. -N0. -E. ..\..\..\examples\FirstTrace.dpr
-   set "OTEL_SERVICE_NAME=billing-demo"
-   set "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces"
-   set "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf"
-   set "OTEL_SDK_DISABLED=false"
-   FirstTrace.exe
+   dcc32 -B -Q -LUrtl;OTel4D -U. -N0. -E. ..\..\..\examples\ConfiguredTelemetry.dpr
+   ConfiguredTelemetry.exe
    popd
    ```
 
-3. Expect `Trace delivery completed.` in the application terminal. In the Collector output, find `service.name=billing-demo` and scope `example.billing` version `1.0`. Locate `invoice.issue` and `invoice.calculate_total`. They share a trace ID, and the child's parent span ID equals the span ID of `invoice.issue`. The child has integer attribute `invoice.line_count=3`. The parent has the event `invoice.calculated`. Collector output formatting can vary by version. Stop the local Collector with Ctrl+C.
+3. Find service `billing-code-demo` and scope `example.billing` in the Collector output. The four `invoice.issue_batch` spans have matching INFO log records. The `example.invoices.issued` counter exports cumulative values of **3**, **6**, and **8** for the three flushes. [Complete Delphi source](../examples/ConfiguredTelemetry.dpr) · [Cumulative counter chart](telemetry.md#record-metrics)
+
+The console example uses `http://127.0.0.1:4318` by default. An optional first argument replaces that base URL for a local receiver using another port. The program contains the export settings. Any environment-driven exporter or header fallback still applies when its corresponding option is unset. Run the example in a prompt with clean telemetry settings when reproducing the output above.
+
+For a smaller trace-only example, compile `FirstTrace.dpr` with the same command and use `FirstTrace.exe`. The parent `invoice.issue` and its child `invoice.calculate_total` share a trace ID. [Trace-only source](../examples/FirstTrace.dpr)
 
 ## Link an existing application
 
-**Compile the sources into the executable.** Add `source/controller`, `source/model/dto`, `source/model/dao`, `source/model/service` and `source/view` to the application's Delphi unit search path. Add `OTel.Api` to the instrumented unit's `uses` clause. This mode compiles the library alongside the host and works without the OTel4D BPL at deployment.
+**Compile the sources into the executable.** Add `source/domain`, `source/application`, `source/bootstrap`, `source/adapters/api`, `source/adapters/configuration`, `source/adapters/database`, `source/adapters/otlp`, `source/adapters/runtime`, and `source/adapters/windows` to the application's Delphi unit search path. Add `OTel.Api` to the instrumented unit's `uses` clause. This mode compiles the library alongside the host and works without the OTel4D BPL at deployment.
 
 **Use runtime packages.** Build the DPROJ with the same Delphi version, platform and configuration as your host. Enable runtime packages in the application, include `OTel4D`, and add the package output directory to the compiler's search path for the DCP. Deploy the matching `OTel4D.bpl` and required Embarcadero runtime BPLs where Windows can load them. The project writes the BPL and DCP to `source\Win32\Debug` or `source\Win32\Release`. Rebuild consumers when changing the package's public classes. [Package project](../source/OTel4D.dproj)
 
@@ -53,11 +103,11 @@ Options passed to `TOTel.Open(Options)` override the process environment read at
 
 **Authentication.** Use HTTPS with a trusted certificate for remote receivers. Supply authentication through the host's secret configuration, for example a trace-headers value shaped like `Authorization=Bearer%20TOKEN,X-Tenant=example`. Replace the placeholder at runtime. A comma separates assignments. Encode a comma inside a value as `%2C`. A literal plus stays a plus. OTel4D rejects duplicate header names, malformed escapes, control characters, reserved transport headers and header settings longer than 16,384 Delphi string units. Keep credentials and raw receiver messages out of application diagnostics.
 
-**Programmatic configuration.** Create `TOTelOptions`, assign the properties you own, call `TOTel.Open(Options)`, then free the options. The client remains usable. Empty string settings fall through to environment values. Array, sampler, batch processor, resource-attribute and other generic SDK settings outside the table have no configuration binding in this version.
+**Configuration precedence.** Explicit values in code take priority for supported options. Empty string settings fall through to environment values. Set `Options.Logs.Exporter` or `Options.Metrics.Exporter` to `'none'` to turn a signal off in Delphi. `'otlp'` explicitly enables it. A signal's `BaseEndpoint` overrides the common base URL, while its explicit `Endpoint` wins over either base. Enabled exporters are validated during `TOTel.Open`. Array, sampler, batch processor, resource-attribute and other generic SDK settings outside the table have no configuration binding in this version.
 
 ## Public API and ownership
 
-Application code imports `OTel.Api`. The application owns each returned client, tracer, span and configuration snapshot. Local object assignment aliases an instance. Free each object once and use `try/finally` at its ownership boundary. [Public facade](../source/controller/OTel.Api.pas) · [Runnable ownership example](../examples/FirstTrace.dpr)
+Application code imports `OTel.Api`. The application owns each returned client, tracer, span and configuration snapshot. Local object assignment aliases an instance. Free each object once and use `try/finally` at its ownership boundary. [Public facade](../source/adapters/api/OTel.Api.pas) · [Runnable ownership example](../examples/FirstTrace.dpr)
 
 | Call | Contract |
 | --- | --- |

@@ -25,6 +25,8 @@ class Receiver(BaseHTTPRequestHandler):
             self.server.release.wait(timeout=12)
         responses = self.server.responses
         status, payload, media, headers = responses[min(len(self.server.received), len(responses)) - 1]
+        if len(body) > getattr(self.server, "max_bytes", len(body)):
+            status, payload, headers = 413, b"", {}
         self.send_response(status)
         self.send_header("Content-Type", media)
         self.send_header("Content-Length", str(len(payload)))
@@ -128,6 +130,34 @@ class TraceDelivery(unittest.TestCase):
             reply.partial_success.error_message = "synthetic receiver warning"
             with self.subTest(rejected=rejected):
                 self.exercise([(200, reply.SerializeToString(), PROTOBUF, {})], rejected=rejected, warnings=1)
+
+    def test_large_batch_is_split_by_encoded_bytes(self):
+        with ThreadingHTTPServer(("127.0.0.1", 0), Receiver) as server:
+            server.received = []
+            server.responses = [(200, b"", PROTOBUF, {})]
+            server.max_bytes = 4 * 1024 * 1024
+            worker = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
+            worker.start()
+            env = self.environment(f"http://127.0.0.1:{server.server_port}/tenant")
+            try:
+                run = subprocess.run([str(self.executable), "large"], env=env, capture_output=True,
+                                     text=True, timeout=25)
+            finally:
+                server.shutdown()
+                worker.join()
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("flush=1 dropped=0 rejected=0", run.stdout)
+        self.assertGreater(len(server.received), 1)
+        sequence = []
+        for target, _, body in server.received:
+            self.assertEqual(target, "/tenant/v1/traces")
+            self.assertLessEqual(len(body), server.max_bytes)
+            request = ExportTraceServiceRequest.FromString(body)
+            sequence.extend(
+                next(a.value.int_value for a in span.attributes if a.key == "sequence")
+                for resource in request.resource_spans for scope in resource.scope_spans for span in scope.spans
+            )
+        self.assertEqual(sequence, list(range(1, 129)))
 
     def test_terminal_responses(self):
         for response in [(400, b"", PROTOBUF, {}), (307, b"", PROTOBUF, {"Location": "/unexpected"}),
